@@ -556,13 +556,13 @@ export class GmailIntegration extends BaseEmailIntegration {
     });
   }
 
-  async deleteEmail(id) {
+  async deleteEmail(id, forcePermanent = false) {
     if (this.isDemo) {
       const emails = this.getDemoEmails();
       const target = emails.find((e) => e.id === id);
       if (target) {
-        if (target.isTrash) {
-          // Permanently remove from demo store if already in Trash
+        if (target.isTrash || forcePermanent) {
+          // Permanently remove from demo store if already in Trash or forcePermanent
           const remaining = emails.filter((e) => e.id !== id);
           this.saveDemoEmails(remaining);
           return { success: true, id, permanent: true };
@@ -575,17 +575,36 @@ export class GmailIntegration extends BaseEmailIntegration {
     }
 
     try {
-      // First try moving to trash
-      return await this.gmail.users.messages.trash({
+      // Check message labels first
+      const msg = await this.gmail.users.messages.get({ userId: 'me', id, format: 'minimal' });
+      const labels = msg.data?.labelIds || [];
+      
+      if (labels.includes('TRASH') || forcePermanent) {
+        // Permanently delete from Gmail
+        await this.gmail.users.messages.delete({
+          userId: 'me',
+          id,
+        });
+        return { success: true, id, permanent: true };
+      }
+
+      // Move to Trash
+      await this.gmail.users.messages.trash({
         userId: 'me',
         id,
       });
+      return { success: true, id, permanent: false };
     } catch (err) {
-      // If already in trash or error, permanently delete from Gmail
-      return await this.gmail.users.messages.delete({
-        userId: 'me',
-        id,
-      });
+      // Fallback: execute permanent delete
+      try {
+        await this.gmail.users.messages.delete({
+          userId: 'me',
+          id,
+        });
+        return { success: true, id, permanent: true };
+      } catch (e) {
+        throw err;
+      }
     }
   }
 
@@ -595,16 +614,29 @@ export class GmailIntegration extends BaseEmailIntegration {
       const target = emails.find((e) => e.id === id);
       if (target) {
         target.isTrash = false;
+        target.isArchived = false;
         target.labels = [...(target.labels || []).filter((l) => l !== 'TRASH'), 'INBOX'];
         this.saveDemoEmails(emails);
       }
-      return { success: true, id };
+      return { success: true, id, restored: true };
     }
 
-    return this.gmail.users.messages.untrash({
-      userId: 'me',
-      id,
-    });
+    try {
+      await this.gmail.users.messages.untrash({
+        userId: 'me',
+        id,
+      });
+      await this.gmail.users.messages.modify({
+        userId: 'me',
+        id,
+        requestBody: {
+          addLabelIds: ['INBOX'],
+        },
+      });
+      return { success: true, id, restored: true };
+    } catch (err) {
+      throw err;
+    }
   }
 
   async sendEmail({ to, cc, bcc, subject, body, inReplyTo, references, threadId }) {

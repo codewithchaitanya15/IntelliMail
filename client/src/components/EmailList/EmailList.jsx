@@ -24,12 +24,14 @@ export const EmailList = ({ title = 'Inbox', folder = 'inbox' }) => {
     bulkMarkRead,
     bulkArchive,
     bulkDelete,
+    bulkRestore,
     filterPriority,
     setFilterPriority,
     filterCategory,
     setFilterCategory,
   } = useEmailStore();
 
+  const isTrashFolder = folder === 'trash';
   const allSelected = emails.length > 0 && selectedEmailIds.length === emails.length;
   const someSelected = selectedEmailIds.length > 0;
 
@@ -70,10 +72,10 @@ export const EmailList = ({ title = 'Inbox', folder = 'inbox' }) => {
           {/* Bulk Actions (visible when items selected) */}
           {someSelected && (
             <div className="flex items-center gap-1 pl-2 border-l border-slate-200 dark:border-slate-800 animate-in fade-in duration-150">
-              {folder === 'trash' ? (
+              {isTrashFolder ? (
                 <>
                   <button
-                    onClick={useEmailStore.getState().bulkRestore}
+                    onClick={bulkRestore}
                     className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg transition-colors cursor-pointer"
                     title="Restore selected emails"
                   >

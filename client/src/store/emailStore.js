@@ -181,30 +181,39 @@ export const useEmailStore = create((set, get) => ({
     }
   },
 
-  deleteEmail: async (id) => {
+  deleteEmail: async (id, forcePermanent = false) => {
+    const isTrash = get().activeFolder === 'trash' || forcePermanent;
+    // Optimistic UI update
+    set((state) => ({
+      emails: state.emails.filter((e) => e.id !== id),
+      currentEmail: state.currentEmail?.id === id ? null : state.currentEmail,
+      selectedEmailIds: state.selectedEmailIds.filter((item) => item !== id),
+    }));
+
     try {
-      const res = await api.delete(`/emails/${id}`);
-      const isPermanent = res.data?.data?.permanent || get().currentFolder === 'trash';
-      set((state) => ({
-        emails: state.emails.filter((e) => e.id !== id),
-        currentEmail: null,
-      }));
-      toast.success(isPermanent ? 'Email permanently deleted' : 'Email moved to trash');
+      const res = await api.delete(`/emails/${id}${isTrash ? '?permanent=true' : ''}`);
+      const permanent = res.data?.data?.permanent || isTrash;
+      toast.success(permanent ? 'Email permanently deleted' : 'Email moved to trash');
     } catch (err) {
       toast.error('Failed to delete email');
+      get().fetchEmails();
     }
   },
 
   restoreEmail: async (id) => {
+    // Optimistic UI update
+    set((state) => ({
+      emails: state.emails.filter((e) => e.id !== id),
+      currentEmail: state.currentEmail?.id === id ? null : state.currentEmail,
+      selectedEmailIds: state.selectedEmailIds.filter((item) => item !== id),
+    }));
+
     try {
       await api.patch(`/emails/${id}/restore`);
-      set((state) => ({
-        emails: state.emails.filter((e) => e.id !== id),
-        currentEmail: null,
-      }));
       toast.success('Email restored to inbox');
     } catch (err) {
       toast.error('Failed to restore email');
+      get().fetchEmails();
     }
   },
 
@@ -238,7 +247,7 @@ export const useEmailStore = create((set, get) => ({
 
   // Bulk Actions
   bulkMarkRead: async () => {
-    const ids = get().selectedEmailIds;
+    const ids = [...get().selectedEmailIds];
     if (ids.length === 0) return;
     await Promise.all(ids.map((id) => api.patch(`/emails/${id}/read`)));
     set((state) => ({
@@ -249,7 +258,7 @@ export const useEmailStore = create((set, get) => ({
   },
 
   bulkArchive: async () => {
-    const ids = get().selectedEmailIds;
+    const ids = [...get().selectedEmailIds];
     if (ids.length === 0) return;
     await Promise.all(ids.map((id) => api.patch(`/emails/${id}/archive`)));
     set((state) => ({
@@ -260,26 +269,38 @@ export const useEmailStore = create((set, get) => ({
   },
 
   bulkDelete: async () => {
-    const ids = get().selectedEmailIds;
+    const ids = [...get().selectedEmailIds];
     if (ids.length === 0) return;
-    const isTrashFolder = get().currentFolder === 'trash';
-    await Promise.all(ids.map((id) => api.delete(`/emails/${id}`)));
+    const isTrash = get().activeFolder === 'trash';
+    // Optimistic removal
     set((state) => ({
       emails: state.emails.filter((e) => !ids.includes(e.id)),
       selectedEmailIds: [],
     }));
-    toast.success(isTrashFolder ? `Permanently deleted ${ids.length} emails` : `Moved ${ids.length} emails to trash`);
+    try {
+      await Promise.all(ids.map((id) => api.delete(`/emails/${id}${isTrash ? '?permanent=true' : ''}`)));
+      toast.success(isTrash ? `Permanently deleted ${ids.length} emails` : `Moved ${ids.length} emails to trash`);
+    } catch (err) {
+      toast.error('Failed to delete selected emails');
+      get().fetchEmails();
+    }
   },
 
   bulkRestore: async () => {
-    const ids = get().selectedEmailIds;
+    const ids = [...get().selectedEmailIds];
     if (ids.length === 0) return;
-    await Promise.all(ids.map((id) => api.patch(`/emails/${id}/restore`)));
+    // Optimistic removal
     set((state) => ({
       emails: state.emails.filter((e) => !ids.includes(e.id)),
       selectedEmailIds: [],
     }));
-    toast.success(`Restored ${ids.length} emails to inbox`);
+    try {
+      await Promise.all(ids.map((id) => api.patch(`/emails/${id}/restore`)));
+      toast.success(`Restored ${ids.length} emails to inbox`);
+    } catch (err) {
+      toast.error('Failed to restore selected emails');
+      get().fetchEmails();
+    }
   },
 
   // AI optimistic updates

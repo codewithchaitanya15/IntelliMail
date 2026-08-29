@@ -118,17 +118,17 @@ export const EmailService = {
     return res;
   },
 
-  async deleteEmail(userId, emailId) {
+  async deleteEmail(userId, emailId, forcePermanent = false) {
     const integration = await GmailService.getIntegrationForUser(userId);
-    const res = await integration.deleteEmail(emailId);
+    const res = await integration.deleteEmail(emailId, forcePermanent);
 
     await ActivityService.logActivity({
       userId,
       emailId,
-      action: 'EMAIL_DELETED',
+      action: res.permanent ? 'EMAIL_PERMANENTLY_DELETED' : 'EMAIL_DELETED',
     });
 
-    emitToUser(userId.toString(), 'EMAIL_UPDATED', { emailId, isTrash: true });
+    emitToUser(userId.toString(), 'EMAIL_UPDATED', { emailId, isTrash: !res.permanent, isDeleted: res.permanent });
     return res;
   },
 

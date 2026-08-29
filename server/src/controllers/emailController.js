@@ -125,7 +125,8 @@ export const EmailController = {
 
   async deleteEmail(req, res, next) {
     try {
-      const result = await EmailService.deleteEmail(req.user._id, req.params.id);
+      const forcePermanent = req.query.permanent === 'true' || req.body?.permanent === true;
+      const result = await EmailService.deleteEmail(req.user._id, req.params.id, forcePermanent);
       res.status(200).json({
         success: true,
         data: result,
