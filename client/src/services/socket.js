@@ -7,8 +7,12 @@ export const initSocketClient = (token) => {
     socket.disconnect();
   }
 
-  const apiBase = import.meta.env.VITE_API_BASE_URL || '';
-  const socketUrl = import.meta.env.VITE_SOCKET_URL || (apiBase ? apiBase.replace(/\/api\/?$/, '') : '/');
+  const apiBase =
+    import.meta.env.VITE_API_BASE_URL ||
+    (import.meta.env.PROD ? 'https://intellimail-h9mx.onrender.com/api' : '');
+  const socketUrl =
+    import.meta.env.VITE_SOCKET_URL ||
+    (apiBase ? apiBase.replace(/\/api\/?$/, '') : '/');
 
   socket = io(socketUrl, {
     auth: {
