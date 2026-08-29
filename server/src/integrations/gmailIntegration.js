@@ -587,7 +587,7 @@ export class GmailIntegration extends BaseEmailIntegration {
         id,
       });
     }
-  },
+  }
 
   async untrashEmail(id) {
     if (this.isDemo) {
@@ -605,7 +605,7 @@ export class GmailIntegration extends BaseEmailIntegration {
       userId: 'me',
       id,
     });
-  },
+  }
 
   async sendEmail({ to, cc, bcc, subject, body, inReplyTo, references, threadId }) {
     if (this.isDemo) {
