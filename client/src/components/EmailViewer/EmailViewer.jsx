@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -51,6 +51,7 @@ export const EmailViewer = ({ emailId }) => {
   const [showExplainModal, setShowExplainModal] = useState(false);
   const [showActionItems, setShowActionItems] = useState(false);
   const [showDeadlines, setShowDeadlines] = useState(false);
+  const replySectionRef = useRef(null);
 
   useEffect(() => {
     if (emailId) {
@@ -104,6 +105,15 @@ export const EmailViewer = ({ emailId }) => {
     }
   };
 
+  const toggleReplyEditor = () => {
+    setShowReplyEditor((prev) => !prev);
+    if (!showReplyEditor) {
+      setTimeout(() => {
+        replySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full bg-white dark:bg-slate-900 overflow-y-auto">
       {/* Top Action Bar */}
@@ -112,7 +122,7 @@ export const EmailViewer = ({ emailId }) => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate(-1)}
-            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             title="Back"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -122,7 +132,7 @@ export const EmailViewer = ({ emailId }) => {
 
           <button
             onClick={handleStarToggle}
-            className={`p-2 rounded-xl transition-colors ${
+            className={`p-2 rounded-xl transition-colors cursor-pointer ${
               currentEmail.isStarred
                 ? 'text-amber-500 hover:text-amber-600'
                 : 'text-slate-400 hover:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -134,7 +144,7 @@ export const EmailViewer = ({ emailId }) => {
 
           <button
             onClick={handleArchive}
-            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             title="Archive Email"
           >
             <Archive className="w-4 h-4" />
@@ -142,7 +152,7 @@ export const EmailViewer = ({ emailId }) => {
 
           <button
             onClick={handleDelete}
-            className="p-2 rounded-xl text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+            className="p-2 rounded-xl text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
             title="Delete Email"
           >
             <Trash2 className="w-4 h-4" />
@@ -163,11 +173,11 @@ export const EmailViewer = ({ emailId }) => {
 
           {/* Generate AI Reply */}
           <button
-            onClick={() => setShowReplyEditor(!showReplyEditor)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900/40 text-xs font-semibold border border-brand-200 dark:border-brand-800 transition-colors cursor-pointer"
+            onClick={toggleReplyEditor}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900/40 text-xs font-semibold border border-brand-200 dark:border-brand-800 transition-colors cursor-pointer shadow-xs"
           >
             <Reply className="w-3.5 h-3.5" />
-            <span>AI Reply</span>
+            <span>{showReplyEditor ? 'Hide Reply' : 'AI Reply'}</span>
           </button>
 
           {/* Explain Email */}
@@ -292,14 +302,32 @@ export const EmailViewer = ({ emailId }) => {
         {/* Thread History */}
         {currentThread && <EmailThread thread={currentThread} activeEmailId={currentEmail.id} />}
 
-        {/* Reply Editor (if toggled or triggered) */}
-        {showReplyEditor && (
-          <ReplyEditor
-            email={currentEmail}
-            onSent={() => setShowReplyEditor(false)}
-            onCancel={() => setShowReplyEditor(false)}
-          />
+        {/* Quick Action Footer Bar */}
+        {!showReplyEditor && (
+          <div className="p-4 rounded-2xl border border-dashed border-slate-300 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 flex flex-wrap items-center justify-between gap-3">
+            <div className="text-xs text-slate-500">
+              Respond directly to {sender.name} with AI drafting assistance:
+            </div>
+            <button
+              onClick={toggleReplyEditor}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-md hover:shadow-glow-brand transition-all cursor-pointer"
+            >
+              <Reply className="w-4 h-4" />
+              <span>Draft Reply with AI</span>
+            </button>
+          </div>
         )}
+
+        {/* Reply Editor (if toggled or triggered) */}
+        <div ref={replySectionRef}>
+          {showReplyEditor && (
+            <ReplyEditor
+              email={currentEmail}
+              onSent={() => setShowReplyEditor(false)}
+              onCancel={() => setShowReplyEditor(false)}
+            />
+          )}
+        </div>
       </div>
 
       {/* Explain Email Modal */}
