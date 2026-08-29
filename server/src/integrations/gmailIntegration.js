@@ -561,18 +561,51 @@ export class GmailIntegration extends BaseEmailIntegration {
       const emails = this.getDemoEmails();
       const target = emails.find((e) => e.id === id);
       if (target) {
+        if (target.isTrash) {
+          // Permanently remove from demo store if already in Trash
+          const remaining = emails.filter((e) => e.id !== id);
+          this.saveDemoEmails(remaining);
+          return { success: true, id, permanent: true };
+        }
         target.isTrash = true;
         target.labels = [...(target.labels || []).filter((l) => l !== 'INBOX'), 'TRASH'];
+        this.saveDemoEmails(emails);
+      }
+      return { success: true, id, permanent: false };
+    }
+
+    try {
+      // First try moving to trash
+      return await this.gmail.users.messages.trash({
+        userId: 'me',
+        id,
+      });
+    } catch (err) {
+      // If already in trash or error, permanently delete from Gmail
+      return await this.gmail.users.messages.delete({
+        userId: 'me',
+        id,
+      });
+    }
+  },
+
+  async untrashEmail(id) {
+    if (this.isDemo) {
+      const emails = this.getDemoEmails();
+      const target = emails.find((e) => e.id === id);
+      if (target) {
+        target.isTrash = false;
+        target.labels = [...(target.labels || []).filter((l) => l !== 'TRASH'), 'INBOX'];
         this.saveDemoEmails(emails);
       }
       return { success: true, id };
     }
 
-    return this.gmail.users.messages.trash({
+    return this.gmail.users.messages.untrash({
       userId: 'me',
       id,
     });
-  }
+  },
 
   async sendEmail({ to, cc, bcc, subject, body, inReplyTo, references, threadId }) {
     if (this.isDemo) {

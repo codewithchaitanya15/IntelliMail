@@ -132,6 +132,20 @@ export const EmailService = {
     return res;
   },
 
+  async restoreEmail(userId, emailId) {
+    const integration = await GmailService.getIntegrationForUser(userId);
+    const res = await integration.untrashEmail(emailId);
+
+    await ActivityService.logActivity({
+      userId,
+      emailId,
+      action: 'EMAIL_RESTORED',
+    });
+
+    emitToUser(userId.toString(), 'EMAIL_UPDATED', { emailId, isTrash: false });
+    return res;
+  },
+
   async sendEmail(userId, { to, cc, bcc, subject, body, inReplyTo, references, threadId }) {
     const integration = await GmailService.getIntegrationForUser(userId);
     const res = await integration.sendEmail({

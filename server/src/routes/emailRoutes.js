@@ -18,6 +18,7 @@ router.patch('/:id/unread', EmailController.markAsUnread);
 router.patch('/:id/star', EmailController.starEmail);
 router.patch('/:id/unstar', EmailController.unstarEmail);
 router.patch('/:id/archive', EmailController.archiveEmail);
+router.patch('/:id/restore', EmailController.restoreEmail);
 
 router.delete('/:id', EmailController.deleteEmail);
 

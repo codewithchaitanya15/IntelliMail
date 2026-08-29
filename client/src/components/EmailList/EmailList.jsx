@@ -70,30 +70,52 @@ export const EmailList = ({ title = 'Inbox', folder = 'inbox' }) => {
           {/* Bulk Actions (visible when items selected) */}
           {someSelected && (
             <div className="flex items-center gap-1 pl-2 border-l border-slate-200 dark:border-slate-800 animate-in fade-in duration-150">
-              <button
-                onClick={bulkMarkRead}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                title="Mark as Read"
-              >
-                <MailCheck className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Mark Read</span>
-              </button>
-              <button
-                onClick={bulkArchive}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                title="Archive selected"
-              >
-                <Archive className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Archive</span>
-              </button>
-              <button
-                onClick={bulkDelete}
-                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors"
-                title="Delete selected"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Delete</span>
-              </button>
+              {folder === 'trash' ? (
+                <>
+                  <button
+                    onClick={useEmailStore.getState().bulkRestore}
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg transition-colors cursor-pointer"
+                    title="Restore selected emails"
+                  >
+                    <span>Restore to Inbox</span>
+                  </button>
+                  <button
+                    onClick={bulkDelete}
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors cursor-pointer"
+                    title="Delete permanently"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Forever</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={bulkMarkRead}
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                    title="Mark as Read"
+                  >
+                    <MailCheck className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Mark Read</span>
+                  </button>
+                  <button
+                    onClick={bulkArchive}
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                    title="Archive selected"
+                  >
+                    <Archive className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Archive</span>
+                  </button>
+                  <button
+                    onClick={bulkDelete}
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors cursor-pointer"
+                    title="Delete selected"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Delete</span>
+                  </button>
+                </>
+              )}
               <span className="text-xs text-slate-400 font-medium ml-1">
                 ({selectedEmailIds.length} selected)
               </span>

@@ -183,14 +183,28 @@ export const useEmailStore = create((set, get) => ({
 
   deleteEmail: async (id) => {
     try {
-      await api.delete(`/emails/${id}`);
+      const res = await api.delete(`/emails/${id}`);
+      const isPermanent = res.data?.data?.permanent || get().currentFolder === 'trash';
       set((state) => ({
         emails: state.emails.filter((e) => e.id !== id),
         currentEmail: null,
       }));
-      toast.success('Email moved to trash');
+      toast.success(isPermanent ? 'Email permanently deleted' : 'Email moved to trash');
     } catch (err) {
       toast.error('Failed to delete email');
+    }
+  },
+
+  restoreEmail: async (id) => {
+    try {
+      await api.patch(`/emails/${id}/restore`);
+      set((state) => ({
+        emails: state.emails.filter((e) => e.id !== id),
+        currentEmail: null,
+      }));
+      toast.success('Email restored to inbox');
+    } catch (err) {
+      toast.error('Failed to restore email');
     }
   },
 
@@ -248,12 +262,24 @@ export const useEmailStore = create((set, get) => ({
   bulkDelete: async () => {
     const ids = get().selectedEmailIds;
     if (ids.length === 0) return;
+    const isTrashFolder = get().currentFolder === 'trash';
     await Promise.all(ids.map((id) => api.delete(`/emails/${id}`)));
     set((state) => ({
       emails: state.emails.filter((e) => !ids.includes(e.id)),
       selectedEmailIds: [],
     }));
-    toast.success(`Moved ${ids.length} emails to trash`);
+    toast.success(isTrashFolder ? `Permanently deleted ${ids.length} emails` : `Moved ${ids.length} emails to trash`);
+  },
+
+  bulkRestore: async () => {
+    const ids = get().selectedEmailIds;
+    if (ids.length === 0) return;
+    await Promise.all(ids.map((id) => api.patch(`/emails/${id}/restore`)));
+    set((state) => ({
+      emails: state.emails.filter((e) => !ids.includes(e.id)),
+      selectedEmailIds: [],
+    }));
+    toast.success(`Restored ${ids.length} emails to inbox`);
   },
 
   // AI optimistic updates

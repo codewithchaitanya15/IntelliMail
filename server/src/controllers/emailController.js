@@ -135,6 +135,18 @@ export const EmailController = {
     }
   },
 
+  async restoreEmail(req, res, next) {
+    try {
+      const result = await EmailService.restoreEmail(req.user._id, req.params.id);
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async sendEmail(req, res, next) {
     try {
       const { to, cc, bcc, subject, body, inReplyTo, references, threadId } = req.body;
