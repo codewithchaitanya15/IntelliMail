@@ -72,6 +72,11 @@ export const EmailViewer = ({ emailId }) => {
 
   const sender = parseSender(currentEmail.sender || currentEmail.from);
 
+  const isTrashed =
+    currentEmail.isTrash ||
+    currentEmail.labels?.includes('TRASH') ||
+    useEmailStore.getState().activeFolder === 'trash';
+
   const handleStarToggle = () => {
     if (currentEmail.isStarred) {
       unstarEmail(currentEmail.id);
@@ -148,7 +153,7 @@ export const EmailViewer = ({ emailId }) => {
             <Star className={`w-4 h-4 ${currentEmail.isStarred ? 'fill-amber-500' : ''}`} />
           </button>
 
-          {!currentEmail.isTrash ? (
+          {!isTrashed ? (
             <>
               <button
                 onClick={handleArchive}

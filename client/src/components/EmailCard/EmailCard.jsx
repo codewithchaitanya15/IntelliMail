@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Star, Paperclip } from 'lucide-react';
+import { Star, Paperclip, Archive, Trash2, RotateCcw } from 'lucide-react';
 import { parseSender, getInitials } from '../../utils/emailParser.js';
 import { formatDate } from '../../utils/formatDate.js';
 import { PriorityBadge, CategoryBadge } from '../PriorityBadge/PriorityBadge.jsx';
@@ -8,10 +8,20 @@ import { useEmailStore } from '../../store/emailStore.js';
 
 export const EmailCard = ({ email }) => {
   const navigate = useNavigate();
-  const { selectedEmailIds, toggleSelectEmail, starEmail, unstarEmail } = useEmailStore();
+  const {
+    selectedEmailIds,
+    toggleSelectEmail,
+    starEmail,
+    unstarEmail,
+    archiveEmail,
+    deleteEmail,
+    restoreEmail,
+    activeFolder,
+  } = useEmailStore();
 
   const isSelected = selectedEmailIds.includes(email.id);
   const sender = parseSender(email.sender || email.from);
+  const isTrashed = email.isTrash || email.labels?.includes('TRASH') || activeFolder === 'trash';
 
   const handleStarClick = (e) => {
     e.stopPropagation();
@@ -25,6 +35,21 @@ export const EmailCard = ({ email }) => {
   const handleCheckboxClick = (e) => {
     e.stopPropagation();
     toggleSelectEmail(email.id);
+  };
+
+  const handleArchiveClick = (e) => {
+    e.stopPropagation();
+    archiveEmail(email.id);
+  };
+
+  const handleDeleteClick = (e) => {
+    e.stopPropagation();
+    deleteEmail(email.id);
+  };
+
+  const handleRestoreClick = (e) => {
+    e.stopPropagation();
+    restoreEmail(email.id);
   };
 
   const handleClick = () => {
@@ -105,13 +130,52 @@ export const EmailCard = ({ email }) => {
       )}
 
       {/* Badges: Category & Priority */}
-      <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0">
+      <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0 group-hover:hidden">
         {email.category && <CategoryBadge category={email.category} />}
         {email.priority && <PriorityBadge priority={email.priority} size="xs" />}
       </div>
 
+      {/* Quick Action Buttons (shown on row hover) */}
+      <div className="hidden group-hover:flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+        {isTrashed ? (
+          <>
+            <button
+              onClick={handleRestoreClick}
+              className="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors"
+              title="Restore to Inbox"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={handleDeleteClick}
+              className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+              title="Delete Forever"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={handleArchiveClick}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              title="Archive"
+            >
+              <Archive className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={handleDeleteClick}
+              className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+              title="Move to Trash"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </>
+        )}
+      </div>
+
       {/* Date */}
-      <div className="text-[11px] text-slate-400 dark:text-slate-500 flex-shrink-0 text-right w-16">
+      <div className="text-[11px] text-slate-400 dark:text-slate-500 flex-shrink-0 text-right w-16 group-hover:hidden">
         {formatDate(email.date)}
       </div>
     </div>
