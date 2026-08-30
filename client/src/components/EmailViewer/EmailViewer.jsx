@@ -91,7 +91,7 @@ export const EmailViewer = ({ emailId }) => {
   };
 
   const handleDelete = async () => {
-    await deleteEmail(currentEmail.id);
+    await deleteEmail(currentEmail.id, isTrashed);
     navigate(-1);
   };
 

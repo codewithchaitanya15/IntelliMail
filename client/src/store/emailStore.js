@@ -192,7 +192,7 @@ export const useEmailStore = create((set, get) => ({
 
     try {
       const res = await api.delete(`/emails/${id}${isTrash ? '?permanent=true' : ''}`);
-      const permanent = res.data?.data?.permanent || isTrash;
+      const permanent = res.data?.data?.permanent ?? isTrash;
       toast.success(permanent ? 'Email permanently deleted' : 'Email moved to trash');
     } catch (err) {
       toast.error('Failed to delete email');
@@ -268,10 +268,10 @@ export const useEmailStore = create((set, get) => ({
     toast.success(`Archived ${ids.length} emails`);
   },
 
-  bulkDelete: async () => {
+  bulkDelete: async (forcePermanent = false) => {
     const ids = [...get().selectedEmailIds];
     if (ids.length === 0) return;
-    const isTrash = get().activeFolder === 'trash';
+    const isTrash = get().activeFolder === 'trash' || forcePermanent;
     // Optimistic removal
     set((state) => ({
       emails: state.emails.filter((e) => !ids.includes(e.id)),

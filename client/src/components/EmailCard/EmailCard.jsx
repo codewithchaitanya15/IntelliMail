@@ -44,7 +44,7 @@ export const EmailCard = ({ email }) => {
 
   const handleDeleteClick = (e) => {
     e.stopPropagation();
-    deleteEmail(email.id);
+    deleteEmail(email.id, isTrashed);
   };
 
   const handleRestoreClick = (e) => {

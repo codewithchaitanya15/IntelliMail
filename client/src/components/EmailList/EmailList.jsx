@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   RotateCw,
+  RotateCcw,
   Archive,
   Trash2,
   MailCheck,
@@ -29,9 +30,10 @@ export const EmailList = ({ title = 'Inbox', folder = 'inbox' }) => {
     setFilterPriority,
     filterCategory,
     setFilterCategory,
+    activeFolder,
   } = useEmailStore();
 
-  const isTrashFolder = folder === 'trash';
+  const isTrashFolder = folder === 'trash' || activeFolder === 'trash';
   const allSelected = emails.length > 0 && selectedEmailIds.length === emails.length;
   const someSelected = selectedEmailIds.length > 0;
 
@@ -79,10 +81,11 @@ export const EmailList = ({ title = 'Inbox', folder = 'inbox' }) => {
                     className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg transition-colors cursor-pointer"
                     title="Restore selected emails"
                   >
+                    <RotateCcw className="w-3.5 h-3.5" />
                     <span>Restore to Inbox</span>
                   </button>
                   <button
-                    onClick={bulkDelete}
+                    onClick={() => bulkDelete(isTrashFolder)}
                     className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors cursor-pointer"
                     title="Delete permanently"
                   >

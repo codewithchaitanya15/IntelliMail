@@ -261,6 +261,33 @@ Hit play now on your desktop or mobile app!`,
     category: 'Promotions',
     actionItems: [],
     dates: []
+  },
+  {
+    id: 'msg_demo_106',
+    threadId: 'th_demo_106',
+    sender: 'DevOps Weekly Digest <digest@devopsweekly.net>',
+    from: 'DevOps Weekly Digest <digest@devopsweekly.net>',
+    to: userEmail,
+    subject: 'DevOps Weekly #482: Kubernetes best practices and CI/CD pipelines',
+    snippet: 'A round-up of the latest news and articles on DevOps, Docker, Kubernetes, and continuous deployment...',
+    body: `DevOps Weekly Issue #482
+
+In this issue:
+- 10 Kubernetes cluster optimization tips for production
+- Why GitOps is taking over continuous deployment workflows
+- Securing your container supply chain with automated vulnerability scans
+
+Read full articles on our portal. Click here to manage your subscription preferences.`,
+    date: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
+    isRead: true,
+    isStarred: false,
+    isArchived: false,
+    isTrash: true,
+    labels: ['TRASH'],
+    priority: 'LOW',
+    category: 'Promotions',
+    actionItems: [],
+    dates: []
   }
 ];
 
@@ -570,8 +597,9 @@ export class GmailIntegration extends BaseEmailIntegration {
         target.isTrash = true;
         target.labels = [...(target.labels || []).filter((l) => l !== 'INBOX'), 'TRASH'];
         this.saveDemoEmails(emails);
+        return { success: true, id, permanent: false };
       }
-      return { success: true, id, permanent: false };
+      return { success: true, id, permanent: true };
     }
 
     try {
@@ -622,17 +650,36 @@ export class GmailIntegration extends BaseEmailIntegration {
     }
 
     try {
-      await this.gmail.users.messages.untrash({
-        userId: 'me',
-        id,
-      });
-      await this.gmail.users.messages.modify({
-        userId: 'me',
-        id,
-        requestBody: {
-          addLabelIds: ['INBOX'],
-        },
-      });
+      try {
+        await this.gmail.users.messages.untrash({
+          userId: 'me',
+          id,
+        });
+      } catch (untrashErr) {
+        // Fallback: try removing TRASH label directly
+        await this.gmail.users.messages.modify({
+          userId: 'me',
+          id,
+          requestBody: {
+            removeLabelIds: ['TRASH'],
+            addLabelIds: ['INBOX'],
+          },
+        });
+      }
+
+      // Best-effort ensure INBOX label is added
+      try {
+        await this.gmail.users.messages.modify({
+          userId: 'me',
+          id,
+          requestBody: {
+            addLabelIds: ['INBOX'],
+          },
+        });
+      } catch (e) {
+        // INBOX label modification is best-effort, untrash was successful
+      }
+
       return { success: true, id, restored: true };
     } catch (err) {
       throw err;
