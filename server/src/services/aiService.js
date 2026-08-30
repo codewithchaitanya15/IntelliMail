@@ -10,26 +10,26 @@ import { emitToUser } from '../config/socket.js';
 export const AIService = {
   /**
    * Helper to execute AI request with multi-tiered fallback:
-   * 1. OpenAI -> 2. Gemini -> 3. Local Deterministic NLP
+   * 1. Gemini -> 2. OpenAI -> 3. Local Deterministic NLP
    */
   async runAIStructured(promptBuilder, fallbackMethod, args) {
     const { system, user } = promptBuilder(args);
-
-    if (OpenAIService.isAvailable()) {
-      try {
-        const result = await OpenAIService.generateJSON(system, user);
-        return { ...result, model: 'openai/gpt-4o-mini' };
-      } catch (err) {
-        console.warn('[AIService] OpenAI failed, trying Gemini:', err.message);
-      }
-    }
 
     if (GeminiService.isAvailable()) {
       try {
         const result = await GeminiService.generateJSON(system, user);
         return { ...result, model: 'gemini/gemini-1.5-flash' };
       } catch (err) {
-        console.warn('[AIService] Gemini failed, falling back to local NLP:', err.message);
+        console.warn('[AIService] Gemini failed, trying OpenAI:', err.message);
+      }
+    }
+
+    if (OpenAIService.isAvailable()) {
+      try {
+        const result = await OpenAIService.generateJSON(system, user);
+        return { ...result, model: 'openai/gpt-4o-mini' };
+      } catch (err) {
+        console.warn('[AIService] OpenAI failed, falling back to local NLP:', err.message);
       }
     }
 
@@ -40,21 +40,21 @@ export const AIService = {
   async runAIText(promptBuilder, fallbackMethod, args) {
     const { system, user } = promptBuilder(...args);
 
-    if (OpenAIService.isAvailable()) {
-      try {
-        const text = await OpenAIService.generateText(system, user);
-        return { text, model: 'openai/gpt-4o-mini' };
-      } catch (err) {
-        console.warn('[AIService] OpenAI text failed, trying Gemini:', err.message);
-      }
-    }
-
     if (GeminiService.isAvailable()) {
       try {
         const text = await GeminiService.generateText(system, user);
         return { text, model: 'gemini/gemini-1.5-flash' };
       } catch (err) {
-        console.warn('[AIService] Gemini text failed, falling back to local NLP:', err.message);
+        console.warn('[AIService] Gemini text failed, trying OpenAI:', err.message);
+      }
+    }
+
+    if (OpenAIService.isAvailable()) {
+      try {
+        const text = await OpenAIService.generateText(system, user);
+        return { text, model: 'openai/gpt-4o-mini' };
+      } catch (err) {
+        console.warn('[AIService] OpenAI text failed, falling back to local NLP:', err.message);
       }
     }
 

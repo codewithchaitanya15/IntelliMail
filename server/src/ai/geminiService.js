@@ -24,25 +24,42 @@ export const GeminiService = {
       throw new Error('GEMINI_KEY_MISSING');
     }
 
-    const candidateModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash'];
+    const candidateModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash', 'gemini-pro'];
+    let lastError = null;
+
     for (const modelName of candidateModels) {
       try {
         const model = client.getGenerativeModel({
           model: modelName,
           generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.2,
+            temperature: 0.3,
           },
-          systemInstruction: systemPrompt,
         });
 
-        const result = await model.generateContent(userPrompt);
-        const text = result.response.text();
-        return JSON.parse(text);
+        const fullPrompt = `${systemPrompt ? `SYSTEM INSTRUCTIONS:\n${systemPrompt}\n\n` : ''}USER INPUT:\n${userPrompt}\n\nIMPORTANT: Return valid JSON ONLY.`;
+        const result = await model.generateContent(fullPrompt);
+        let text = result.response.text().trim();
+
+        // Strip markdown code fences like ```json ... ``` or ``` ... ```
+        if (text.startsWith('```')) {
+          text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+        }
+
+        try {
+          return JSON.parse(text);
+        } catch (jsonErr) {
+          // If JSON parse fails, return the generated text as the body
+          return {
+            body: text,
+            keyPoints: [],
+          };
+        }
       } catch (err) {
-        if (modelName === candidateModels[candidateModels.length - 1]) throw err;
+        lastError = err;
       }
     }
+
+    throw lastError || new Error('All Gemini models failed');
   },
 
   async generateText(systemPrompt, userPrompt) {
@@ -51,7 +68,9 @@ export const GeminiService = {
       throw new Error('GEMINI_KEY_MISSING');
     }
 
-    const candidateModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash'];
+    const candidateModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash', 'gemini-pro'];
+    let lastError = null;
+
     for (const modelName of candidateModels) {
       try {
         const model = client.getGenerativeModel({
@@ -59,14 +78,16 @@ export const GeminiService = {
           generationConfig: {
             temperature: 0.6,
           },
-          systemInstruction: systemPrompt,
         });
 
-        const result = await model.generateContent(userPrompt);
+        const fullPrompt = `${systemPrompt ? `SYSTEM INSTRUCTIONS:\n${systemPrompt}\n\n` : ''}USER INPUT:\n${userPrompt}`;
+        const result = await model.generateContent(fullPrompt);
         return result.response.text().trim();
       } catch (err) {
-        if (modelName === candidateModels[candidateModels.length - 1]) throw err;
+        lastError = err;
       }
     }
+
+    throw lastError || new Error('All Gemini models failed');
   },
 };
