@@ -174,4 +174,23 @@ Return ONLY valid JSON matching:
       user: `User search request: "${userQuery}"`,
     };
   },
+
+  getDraftEmailPrompt({ subject, tone = 'Professional', customInstructions = '', to = '' }) {
+    return {
+      system: `You are an executive AI email copywriter. Draft a complete, polished, and ready-to-send email body based on the subject and tone requested.
+Tone: ${tone}.
+${customInstructions ? `Special Instructions: ${customInstructions}` : ''}
+${to ? `Recipient: ${to}` : ''}
+Guidelines:
+- Include a proper salutation, well-structured coherent body paragraphs, and professional sign-off.
+- Elaborate intelligently on the topic indicated by the subject.
+- Return ONLY valid JSON matching:
+{
+  "body": "Full drafted email message body with newline breaks",
+  "keyPoints": ["Main topic 1", "Main topic 2"]
+}`,
+      user: `Subject: ${subject}
+${customInstructions ? `Additional notes: ${customInstructions}` : ''}`,
+    };
+  },
 };

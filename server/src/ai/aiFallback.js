@@ -281,4 +281,50 @@ export const AIFallbackService = {
       explanation: `Interpreted "${query}" as search query filter: ${gmailQuery}`,
     };
   },
+
+  draftEmail({ subject, tone = 'Professional', customInstructions = '', to = '' }) {
+    const cleanSubject = (subject || 'our upcoming discussion').trim();
+    const recipientName = to ? to.split('@')[0].replace(/[\._]/g, ' ') : 'there';
+    const capitalizedRecipient = recipientName.charAt(0).toUpperCase() + recipientName.slice(1);
+
+    const greetings = {
+      Professional: `Dear ${capitalizedRecipient},`,
+      Friendly: `Hi ${capitalizedRecipient}!`,
+      Formal: `Dear ${capitalizedRecipient},`,
+      Concise: `Hi ${capitalizedRecipient},`,
+    };
+
+    const closings = {
+      Professional: 'Best regards,\n[Your Name]',
+      Friendly: 'Warm regards,\n[Your Name]',
+      Formal: 'Sincerely,\n[Your Name]',
+      Concise: 'Thanks,\n[Your Name]',
+    };
+
+    let bodyParagraphs = '';
+    if (tone === 'Concise') {
+      bodyParagraphs = `I am writing to you regarding ${cleanSubject}.\n\nPlease review the details at your earliest convenience and let me know if you have any questions or require any next steps.`;
+    } else if (tone === 'Friendly') {
+      bodyParagraphs = `Hope you're having a wonderful week!\n\nI wanted to quickly reach out regarding ${cleanSubject}. I'm excited about this and would love to collaborate on the next steps.\n\nLet me know what you think and when you might be free for a quick chat!`;
+    } else if (tone === 'Formal') {
+      bodyParagraphs = `I am writing to formally address the matter of ${cleanSubject}.\n\nKindly review the relevant materials and confirm your availability for any required follow-up proceedings. Please do not hesitate to contact me should you require further documentation.`;
+    } else {
+      // Professional default
+      bodyParagraphs = `I hope this email finds you well.\n\nI am writing to you regarding ${cleanSubject}. Please find the relevant details outlined below, and let me know if there are any specific aspects you would like to discuss further.\n\nLooking forward to hearing from you.`;
+    }
+
+    if (customInstructions) {
+      bodyParagraphs += `\n\nNote: ${customInstructions}`;
+    }
+
+    const greeting = greetings[tone] || greetings.Professional;
+    const closing = closings[tone] || closings.Professional;
+    const fullBody = `${greeting}\n\n${bodyParagraphs}\n\n${closing}`;
+
+    return {
+      body: fullBody,
+      keyPoints: [cleanSubject],
+      model: 'fallback-deterministic-nlp',
+    };
+  },
 };

@@ -59,6 +59,29 @@ export const Compose = () => {
     }
   };
 
+  const handleDraftEmailFromSubject = async () => {
+    if (!subject || subject.trim().length < 3) {
+      toast.error('Please enter a subject line first so AI knows what to write');
+      return;
+    }
+    setIsAiLoading(true);
+    try {
+      const res = await aiService.draftEmail({
+        subject,
+        tone: selectedTone,
+        to,
+      });
+      if (res && res.body) {
+        setBody(res.body);
+        toast.success('AI drafted your entire email!');
+      }
+    } catch (err) {
+      toast.error('Failed to write email with AI');
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
   const handleImprove = async () => {
     if (!body.trim()) {
       toast.error('Enter some text to improve');
@@ -82,7 +105,7 @@ export const Compose = () => {
     <div className="flex-1 p-6 overflow-y-auto bg-slate-50/50 dark:bg-slate-950/50">
       <div className="max-w-4xl mx-auto bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-md overflow-hidden">
         {/* Header */}
-        <div className="p-6 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between">
+        <div className="p-6 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate(-1)}
@@ -95,7 +118,7 @@ export const Compose = () => {
             </h1>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <select
               value={selectedTone}
               onChange={(e) => setSelectedTone(e.target.value)}
@@ -106,6 +129,17 @@ export const Compose = () => {
               <option value="Formal">Tone: Formal</option>
               <option value="Concise">Tone: Concise</option>
             </select>
+
+            <button
+              type="button"
+              onClick={handleDraftEmailFromSubject}
+              disabled={isAiLoading}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-brand-500/15 to-indigo-500/15 text-brand-700 dark:text-brand-300 border border-brand-500/30 rounded-xl text-xs font-semibold hover:bg-brand-500/25 transition-all cursor-pointer shadow-2xs"
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${isAiLoading ? 'animate-spin' : ''}`} />
+              <span>Write from Subject</span>
+            </button>
+
             <button
               onClick={handleImprove}
               disabled={isAiLoading}
@@ -158,13 +192,24 @@ export const Compose = () => {
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="font-semibold text-slate-700 dark:text-slate-300">Subject</label>
-              <button
-                type="button"
-                onClick={handleGenerateSubject}
-                className="text-[11px] text-ai-600 dark:text-ai-400 hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <Sparkles className="w-3 h-3" /> Generate with AI
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleGenerateSubject}
+                  className="text-[11px] text-ai-600 dark:text-ai-400 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Sparkles className="w-3 h-3" /> AI Subject
+                </button>
+                <span className="text-slate-300 dark:text-slate-700">|</span>
+                <button
+                  type="button"
+                  onClick={handleDraftEmailFromSubject}
+                  disabled={isAiLoading}
+                  className="text-[11px] text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 font-semibold cursor-pointer"
+                >
+                  <Wand2 className="w-3 h-3" /> Auto-Write Email
+                </button>
+              </div>
             </div>
             <input
               type="text"

@@ -14,6 +14,7 @@ router.post('/explain', AIController.explain);
 router.post('/action-items', AIController.extractActionItems);
 router.post('/extract-dates', AIController.extractDates);
 router.post('/generate-subject', AIController.generateSubject);
+router.post('/draft-email', AIController.draftEmail);
 router.post('/improve-email', AIController.improveEmail);
 router.post('/smart-search', AIController.smartSearch);
 

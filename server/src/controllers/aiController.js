@@ -162,4 +162,30 @@ export const AIController = {
       next(error);
     }
   },
+
+  async draftEmail(req, res, next) {
+    try {
+      const { subject, tone, customInstructions, to } = req.body;
+      if (!subject || !subject.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Subject is required to draft an email with AI',
+        });
+      }
+
+      const result = await AIService.draftEmail({
+        subject,
+        tone: tone || 'Professional',
+        customInstructions: customInstructions || '',
+        to: to || '',
+      });
+
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
 };

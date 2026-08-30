@@ -46,6 +46,16 @@ export const aiService = {
     return res.data.data;
   },
 
+  async draftEmail({ subject, tone = 'Professional', customInstructions = '', to = '' }) {
+    const res = await api.post('/ai/draft-email', {
+      subject,
+      tone,
+      customInstructions,
+      to,
+    });
+    return res.data.data;
+  },
+
   async improveEmail({ body, tone }) {
     const res = await api.post('/ai/improve-email', { body, tone });
     return res.data.data;

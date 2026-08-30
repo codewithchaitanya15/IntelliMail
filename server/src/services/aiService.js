@@ -260,4 +260,13 @@ export const AIService = {
       query
     );
   },
+
+  // 11. Draft Full Email from Subject
+  async draftEmail({ subject, tone = 'Professional', customInstructions = '', to = '' }) {
+    return this.runAIStructured(
+      PromptService.getDraftEmailPrompt,
+      AIFallbackService.draftEmail,
+      { subject, tone, customInstructions, to }
+    );
+  },
 };
