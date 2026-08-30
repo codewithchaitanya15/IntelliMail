@@ -59,20 +59,50 @@ export const Compose = () => {
     }
   };
 
-  const handleImprove = async (toneToUse = selectedTone) => {
-    if (!body || body.trim().length < 3) {
-      toast.error('Enter some text to improve');
+  const TONES = [
+    { id: 'Professional', label: 'Professional', icon: '💼' },
+    { id: 'Friendly', label: 'Friendly', icon: '😊' },
+    { id: 'Formal', label: 'Formal', icon: '👔' },
+    { id: 'Concise', label: 'Concise', icon: '⚡' },
+  ];
+
+  const handleApplyTone = async (toneName) => {
+    setSelectedTone(toneName);
+
+    const currentBody = body?.trim();
+    const currentSubject = subject?.trim();
+
+    if (!currentBody && !currentSubject) {
+      toast.info(`Selected ${toneName} tone. Type your email and click any tone button to transform it!`);
       return;
     }
+
     setIsAiLoading(true);
     try {
-      const res = await aiService.improveEmail({ body, tone: toneToUse });
-      if (res && res.improvedBody) {
-        setBody(res.improvedBody);
-        toast.success(`Polished email in ${toneToUse} tone!`);
+      if (currentBody && currentBody.length >= 2) {
+        const res = await aiService.improveEmail({
+          body: currentBody,
+          tone: toneName,
+        });
+
+        if (res && res.improvedBody) {
+          setBody(res.improvedBody);
+          toast.success(`Rewrote email in ${toneName} tone!`);
+        }
+      } else if (currentSubject && currentSubject.length >= 2) {
+        const res = await aiService.draftEmail({
+          subject: currentSubject,
+          tone: toneName,
+          to: to || '',
+        });
+
+        if (res && res.body) {
+          setBody(res.body);
+          toast.success(`Drafted email in ${toneName} tone!`);
+        }
       }
     } catch (err) {
-      toast.error('Failed to polish email');
+      toast.error(`Failed to apply ${toneName} tone`);
     } finally {
       setIsAiLoading(false);
     }
@@ -86,7 +116,7 @@ export const Compose = () => {
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate(-1)}
-              className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
@@ -95,33 +125,31 @@ export const Compose = () => {
             </h1>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <select
-              value={selectedTone}
-              onChange={(e) => {
-                const newTone = e.target.value;
-                setSelectedTone(newTone);
-                if (body && body.trim().length >= 3) {
-                  handleImprove(newTone);
-                }
-              }}
-              className="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-700 dark:text-slate-300 font-medium cursor-pointer"
-            >
-              <option value="Professional">Tone: Professional</option>
-              <option value="Friendly">Tone: Friendly</option>
-              <option value="Formal">Tone: Formal</option>
-              <option value="Concise">Tone: Concise</option>
-            </select>
-
-            <button
-              onClick={() => handleImprove(selectedTone)}
-              disabled={isAiLoading}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-ai-500/15 to-brand-500/15 text-ai-700 dark:text-ai-300 border border-ai-500/30 rounded-xl text-xs font-semibold hover:bg-ai-500/25 transition-all cursor-pointer shadow-2xs"
-              title={`Rewrite email in ${selectedTone} tone`}
-            >
-              <Wand2 className={`w-3.5 h-3.5 ${isAiLoading ? 'animate-spin' : ''}`} />
-              <span>Apply {selectedTone} Tone</span>
-            </button>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 mr-0.5 flex items-center gap-1">
+              <Wand2 className={`w-3.5 h-3.5 text-ai-500 ${isAiLoading ? 'animate-spin' : ''}`} />
+              Tone:
+            </span>
+            {TONES.map((t) => {
+              const isActive = selectedTone === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => handleApplyTone(t.id)}
+                  disabled={isAiLoading}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-brand-600 text-white shadow-md shadow-brand-500/20 scale-[1.02]'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700/70 border border-slate-200 dark:border-slate-700'
+                  }`}
+                  title={`Click to rewrite whole email in ${t.label} tone`}
+                >
+                  <span>{t.icon}</span>
+                  <span>{t.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 

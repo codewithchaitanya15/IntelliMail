@@ -71,25 +71,50 @@ export const ComposeModal = () => {
     }
   };
 
-  const handleImproveEmail = async (toneToUse = selectedTone) => {
-    if (!composeDraft.body || composeDraft.body.trim().length < 3) {
-      toast.error('Please enter message text to improve');
+  const TONES = [
+    { id: 'Professional', label: 'Professional', icon: '💼' },
+    { id: 'Friendly', label: 'Friendly', icon: '😊' },
+    { id: 'Formal', label: 'Formal', icon: '👔' },
+    { id: 'Concise', label: 'Concise', icon: '⚡' },
+  ];
+
+  const handleApplyTone = async (toneName) => {
+    setSelectedTone(toneName);
+
+    const currentBody = composeDraft.body?.trim();
+    const currentSubject = composeDraft.subject?.trim();
+
+    if (!currentBody && !currentSubject) {
+      toast.info(`Selected ${toneName} tone. Type your email and click any tone button to transform it!`);
       return;
     }
 
     setIsAiLoading(true);
     try {
-      const res = await aiService.improveEmail({
-        body: composeDraft.body,
-        tone: toneToUse,
-      });
+      if (currentBody && currentBody.length >= 2) {
+        const res = await aiService.improveEmail({
+          body: currentBody,
+          tone: toneName,
+        });
 
-      if (res && res.improvedBody) {
-        updateComposeDraft({ body: res.improvedBody });
-        toast.success(`Polished email in ${toneToUse} tone!`);
+        if (res && res.improvedBody) {
+          updateComposeDraft({ body: res.improvedBody });
+          toast.success(`Rewrote email in ${toneName} tone!`);
+        }
+      } else if (currentSubject && currentSubject.length >= 2) {
+        const res = await aiService.draftEmail({
+          subject: currentSubject,
+          tone: toneName,
+          to: composeDraft.to || '',
+        });
+
+        if (res && res.body) {
+          updateComposeDraft({ body: res.body });
+          toast.success(`Drafted email in ${toneName} tone!`);
+        }
       }
     } catch (err) {
-      toast.error('Failed to improve email');
+      toast.error(`Failed to apply ${toneName} tone`);
     } finally {
       setIsAiLoading(false);
     }
@@ -100,7 +125,7 @@ export const ComposeModal = () => {
       className={`fixed z-50 bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-200 overflow-hidden ${
         isMaximized
           ? 'inset-4 rounded-3xl'
-          : 'bottom-0 right-4 sm:right-8 w-full sm:w-[620px] h-[580px] rounded-t-3xl border-b-0'
+          : 'bottom-0 right-4 sm:right-8 w-full sm:w-[640px] h-[590px] rounded-t-3xl border-b-0'
       }`}
     >
       {/* Top Header */}
@@ -221,7 +246,7 @@ export const ComposeModal = () => {
           <textarea
             value={composeDraft.body}
             onChange={(e) => updateComposeDraft({ body: e.target.value })}
-            placeholder="Write your email here..."
+            placeholder="Write your email here, then click any Tone button below to instantly rewrite it with AI..."
             className="w-full h-full bg-transparent border-none p-0 focus:outline-hidden text-slate-800 dark:text-slate-200 placeholder:text-slate-400 resize-none leading-relaxed text-xs"
           />
         </div>
@@ -229,35 +254,32 @@ export const ComposeModal = () => {
 
         {/* Bottom AI Toolbar & Actions */}
         <div className="p-3 bg-slate-50 dark:bg-slate-950/60 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
-          {/* AI Tone and Polish */}
-          <div className="flex items-center gap-2">
-            <select
-              value={selectedTone}
-              onChange={(e) => {
-                const newTone = e.target.value;
-                setSelectedTone(newTone);
-                if (composeDraft.body && composeDraft.body.trim().length >= 3) {
-                  handleImproveEmail(newTone);
-                }
-              }}
-              className="text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-hidden font-medium cursor-pointer"
-            >
-              <option value="Professional">Tone: Professional</option>
-              <option value="Friendly">Tone: Friendly</option>
-              <option value="Formal">Tone: Formal</option>
-              <option value="Concise">Tone: Concise</option>
-            </select>
-
-            <button
-              type="button"
-              onClick={() => handleImproveEmail(selectedTone)}
-              disabled={isAiLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-ai-500/15 to-brand-500/15 text-ai-700 dark:text-ai-300 hover:from-ai-500/25 hover:to-brand-500/25 border border-ai-500/30 rounded-xl font-medium transition-all shadow-2xs cursor-pointer"
-              title={`Rewrite email in ${selectedTone} tone`}
-            >
-              <Wand2 className={`w-3.5 h-3.5 ${isAiLoading ? 'animate-spin' : ''}`} />
-              <span>Apply {selectedTone} Tone</span>
-            </button>
+          {/* Clickable AI Tone Pills */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 mr-0.5 flex items-center gap-1">
+              <Wand2 className={`w-3 h-3 text-ai-500 ${isAiLoading ? 'animate-spin' : ''}`} />
+              Tone:
+            </span>
+            {TONES.map((t) => {
+              const isActive = selectedTone === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => handleApplyTone(t.id)}
+                  disabled={isAiLoading}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-brand-600 text-white shadow-md shadow-brand-500/20 scale-[1.02]'
+                      : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/70 border border-slate-200 dark:border-slate-700'
+                  }`}
+                  title={`Click to rewrite whole email in ${t.label} tone`}
+                >
+                  <span>{t.icon}</span>
+                  <span>{t.label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Send and Cancel */}
