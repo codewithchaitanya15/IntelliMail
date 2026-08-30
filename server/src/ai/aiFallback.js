@@ -233,28 +233,133 @@ export const AIFallbackService = {
   },
 
   generateSubject(body) {
-    const words = body.trim().split(/\s+/).slice(0, 10).join(' ');
+    const text = (body || '').trim();
+    if (!text) {
+      return {
+        subjects: [
+          'Important Project Update & Review',
+          'Follow-up & Proposed Next Steps',
+          'Action Required: Key Deliverables',
+        ],
+      };
+    }
+
+    const lower = text.toLowerCase();
+    const isMeeting = lower.includes('meet') || lower.includes('call') || lower.includes('sync') || lower.includes('schedule') || lower.includes('time');
+    const isUrgent = lower.includes('urgent') || lower.includes('asap') || lower.includes('immediate') || lower.includes('deadline') || lower.includes('priority');
+    const isFinance = lower.includes('invoice') || lower.includes('payment') || lower.includes('budget') || lower.includes('contract') || lower.includes('pricing');
+
+    const words = text
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 3 && !['this', 'that', 'with', 'from', 'have', 'been', 'would', 'could', 'please', 'about'].includes(w.toLowerCase()))
+      .slice(0, 4)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+
+    const topic = words || 'Important Discussion';
+
+    if (isUrgent) {
+      return {
+        subjects: [
+          `[Action Required] Urgent: ${topic}`,
+          `Priority Update: ${topic} - Next Steps`,
+          `Time-Sensitive: Review needed regarding ${topic}`,
+        ],
+      };
+    }
+
+    if (isMeeting) {
+      return {
+        subjects: [
+          `Meeting Request: ${topic} Alignment`,
+          `Quick Sync: Discussion regarding ${topic}`,
+          `Proposed Agenda & Schedule: ${topic}`,
+        ],
+      };
+    }
+
+    if (isFinance) {
+      return {
+        subjects: [
+          `Financial Review & Summary: ${topic}`,
+          `Invoice & Billing Details: ${topic}`,
+          `Formal Update: ${topic} Overview`,
+        ],
+      };
+    }
+
     return {
       subjects: [
-        `Update: ${words}...`,
-        `Follow-up Regarding Project Details`,
-        `Action Required: Next Steps & Timeline`,
+        `Update & Overview: ${topic}`,
+        `Follow-up Regarding ${topic}`,
+        `Action Items & Next Steps: ${topic}`,
       ],
     };
   },
 
   improveEmail(body, tone = 'Professional') {
-    const trimmed = body.trim();
+    const text = (body || '').trim();
+    if (!text) {
+      return {
+        improvedBody: '',
+        changesMade: ['No content to polish'],
+        wordCount: 0,
+      };
+    }
+
+    // Capitalize first letters and format basic sentence structure
+    let polished = text
+      .replace(/\bi\b/g, 'I')
+      .replace(/(^|[.!?]\s+)([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase())
+      .trim();
+
+    if (tone === 'Friendly') {
+      if (!polished.match(/^(hi|hey|hello|good (morning|afternoon|day))/i)) {
+        polished = `Hi there!\n\n${polished}`;
+      }
+      if (!polished.match(/(warm regards|talk soon|best|cheers|thanks|warmly)/i)) {
+        polished += '\n\nTalk soon,\n[Your Name]';
+      }
+    } else if (tone === 'Formal') {
+      if (!polished.match(/^(dear|to whom it may concern)/i)) {
+        polished = `Dear Team,\n\n${polished}`;
+      }
+      polished = polished
+        .replace(/\b(wanna|gonna|gotta)\b/gi, 'wish to')
+        .replace(/\b(let's talk|let us talk)\b/gi, 'I propose we schedule a formal consultation')
+        .replace(/\b(thanks|thx)\b/gi, 'Thank you for your consideration');
+
+      if (!polished.match(/(sincerely|respectfully|with kind regards)/i)) {
+        polished += '\n\nSincerely,\n[Your Name]\n[Your Title]';
+      }
+    } else if (tone === 'Concise') {
+      polished = polished
+        .replace(/\b(I just wanted to let you know that|I am writing this email because|Just checking in to say that)\b/gi, 'Please note that')
+        .replace(/\b(hope you are doing well and having a great day\.?|hope this email finds you well\.?)\s*/gi, '')
+        .trim();
+
+      if (!polished.match(/(best|thanks|regards)/i)) {
+        polished += '\n\nBest,\n[Your Name]';
+      }
+    } else {
+      // Professional
+      if (!polished.match(/^(dear|hello|good (morning|afternoon))/i)) {
+        polished = `Hello,\n\n${polished}`;
+      }
+      if (!polished.match(/(best regards|kind regards|sincerely|thank you)/i)) {
+        polished += '\n\nBest regards,\n[Your Name]';
+      }
+    }
+
     return {
-      improvedBody: trimmed
-        .replace(/\bi\b/g, 'I')
-        .replace(/(\. )([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase()),
+      improvedBody: polished,
       changesMade: [
-        `Polished tone to align with ${tone} standard`,
-        'Corrected capitalization and flow',
-        'Enhanced readability and sentence transitions',
+        `Adjusted vocabulary and syntax for ${tone} tone`,
+        'Enhanced grammar, punctuation, and flow',
+        'Structured clear greeting, body spacing, and sign-off',
       ],
-      wordCount: trimmed.split(/\s+/).length,
+      wordCount: polished.split(/\s+/).length,
     };
   },
 

@@ -136,24 +136,42 @@ ${email.body || email.snippet}`,
 
   getGenerateSubjectPrompt(emailBody) {
     return {
-      system: `Generate 3 concise, compelling, and professional email subject lines based on the email body content.
-Return ONLY valid JSON matching:
+      system: `You are an executive email copywriter. Generate exactly 3 distinct, high-impact, professional, and context-specific email subject lines based on the provided email body.
+Guidelines:
+1. Provide 3 different stylistic options (e.g., Action-Oriented, Informative/Update, Concise/Urgent).
+2. Avoid generic placeholders. Capture the exact topic and intent from the body.
+3. Return ONLY valid JSON matching:
 {
-  "subjects": ["Subject Option 1", "Subject Option 2", "Subject Option 3"]
+  "subjects": ["Option 1", "Option 2", "Option 3"]
 }`,
       user: `Email Body:
 ${emailBody}`,
     };
   },
 
-  getImproveEmailPrompt(body, tone = 'Professional', goal = 'grammar_and_clarity') {
+  getImproveEmailPrompt(body, tone = 'Professional') {
+    const toneInstructions = {
+      Professional: 'Ensure the email is clear, articulate, courteous, well-structured, and suitable for business partners, executives, and clients.',
+      Friendly: 'Adopt a warm, conversational, encouraging, and pleasant tone while keeping the communication clear and engaging.',
+      Formal: 'Use elevated vocabulary, dignified phrasing, meticulous grammar, respectful distance, and executive-level phrasing.',
+      Concise: 'Eliminate all unnecessary words, filler phrases, and redundancy. Keep sentences punchy, direct, and straightforward.',
+    };
+
     return {
-      system: `You are an expert email editor. Improve the draft email according to requested tone: ${tone}.
-Fix grammar, enhance vocabulary, improve flow, and make it crisp and impactful.
+      system: `You are an elite executive AI email editor and communications strategist.
+Your task is to thoroughly polish and rewrite the provided draft email into the requested tone: ${tone}.
+Tone Guidelines: ${toneInstructions[tone] || toneInstructions.Professional}
+
+Core Objectives:
+1. Correct all spelling, punctuation, capitalization, and grammatical errors.
+2. Elevate the phrasing and structure to match the target ${tone} tone perfectly.
+3. Preserve the core message, facts, numbers, dates, and intent while significantly improving flow and impact.
+4. Ensure proper paragraph spacing, greeting, and sign-off.
+
 Return ONLY valid JSON matching:
 {
-  "improvedBody": "The polished email text",
-  "changesMade": ["Summary of enhancement 1", "Summary of enhancement 2"],
+  "improvedBody": "The fully polished email text ready to send",
+  "changesMade": ["Summary of key improvement 1", "Summary of key improvement 2"],
   "wordCount": 120
 }`,
       user: `Draft email content:

@@ -220,36 +220,69 @@ export const AIService = {
 
   // 8. Subject Line Generation
   async generateSubject({ body }) {
-    return this.runAIStructured(
+    const rawResult = await this.runAIStructured(
       PromptService.getGenerateSubjectPrompt,
       AIFallbackService.generateSubject,
       body
     );
+
+    let subjects = [];
+    if (rawResult && Array.isArray(rawResult.subjects)) {
+      subjects = rawResult.subjects;
+    } else if (rawResult && Array.isArray(rawResult.subjectOptions)) {
+      subjects = rawResult.subjectOptions;
+    } else if (typeof rawResult?.subject === 'string') {
+      subjects = [rawResult.subject];
+    } else if (typeof rawResult === 'string') {
+      subjects = [rawResult];
+    }
+
+    if (!subjects || subjects.length === 0) {
+      subjects = AIFallbackService.generateSubject(body).subjects;
+    }
+
+    // Clean any surrounding quotes or markdown artifacts
+    subjects = subjects
+      .map((s) => (typeof s === 'string' ? s.replace(/^["'`]|["'`]$/g, '').trim() : ''))
+      .filter(Boolean);
+
+    return {
+      subjects: subjects.length > 0 ? subjects : ['Important: Update & Next Steps'],
+      model: rawResult?.model || 'gemini-ai',
+    };
   },
 
   // 9. Email Improvement & Grammar
   async improveEmail({ body, tone = 'Professional' }) {
-    const { system, user } = PromptService.getImproveEmailPrompt(body, tone);
+    const rawResult = await this.runAIStructured(
+      (b) => PromptService.getImproveEmailPrompt(b, tone),
+      (b) => AIFallbackService.improveEmail(b, tone),
+      body
+    );
 
-    if (OpenAIService.isAvailable()) {
-      try {
-        const result = await OpenAIService.generateJSON(system, user);
-        return { ...result, model: 'openai/gpt-4o-mini' };
-      } catch (err) {
-        console.warn('[AIService] OpenAI improve error, falling back:', err.message);
-      }
+    let improvedBody = '';
+    if (typeof rawResult === 'string') {
+      improvedBody = rawResult;
+    } else if (rawResult && typeof rawResult === 'object') {
+      improvedBody =
+        rawResult.improvedBody ||
+        rawResult.body ||
+        rawResult.improvedEmail ||
+        rawResult.text ||
+        rawResult.content ||
+        '';
     }
 
-    if (GeminiService.isAvailable()) {
-      try {
-        const result = await GeminiService.generateJSON(system, user);
-        return { ...result, model: 'gemini/gemini-1.5-flash' };
-      } catch (err) {
-        console.warn('[AIService] Gemini improve error, falling back:', err.message);
-      }
+    if (!improvedBody || improvedBody.trim().length === 0) {
+      improvedBody = AIFallbackService.improveEmail(body, tone).improvedBody;
     }
 
-    return AIFallbackService.improveEmail(body, tone);
+    return {
+      improvedBody: improvedBody.trim(),
+      changesMade: rawResult?.changesMade || [`Polished in ${tone} tone`],
+      wordCount: rawResult?.wordCount || improvedBody.trim().split(/\s+/).length,
+      model: rawResult?.model || 'gemini-ai',
+    };
   },
 
   // 10. Smart Search

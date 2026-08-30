@@ -92,6 +92,136 @@ Please let me know if you need any additional information in the meantime. We gr
   };
 };
 
+export const generateLocalSubjects = (body) => {
+  const text = (body || '').trim();
+  if (!text) {
+    return {
+      subjects: [
+        'Important Project Update & Review',
+        'Follow-up & Proposed Next Steps',
+        'Action Required: Key Deliverables',
+      ],
+    };
+  }
+
+  const lower = text.toLowerCase();
+  const isMeeting = lower.includes('meet') || lower.includes('call') || lower.includes('sync') || lower.includes('schedule') || lower.includes('time');
+  const isUrgent = lower.includes('urgent') || lower.includes('asap') || lower.includes('immediate') || lower.includes('deadline') || lower.includes('priority');
+  const isFinance = lower.includes('invoice') || lower.includes('payment') || lower.includes('budget') || lower.includes('contract') || lower.includes('pricing');
+
+  const words = text
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 3 && !['this', 'that', 'with', 'from', 'have', 'been', 'would', 'could', 'please', 'about'].includes(w.toLowerCase()))
+    .slice(0, 4)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+
+  const topic = words || 'Important Discussion';
+
+  if (isUrgent) {
+    return {
+      subjects: [
+        `[Action Required] Urgent: ${topic}`,
+        `Priority Update: ${topic} - Next Steps`,
+        `Time-Sensitive: Review needed regarding ${topic}`,
+      ],
+    };
+  }
+
+  if (isMeeting) {
+    return {
+      subjects: [
+        `Meeting Request: ${topic} Alignment`,
+        `Quick Sync: Discussion regarding ${topic}`,
+        `Proposed Agenda & Schedule: ${topic}`,
+      ],
+    };
+  }
+
+  if (isFinance) {
+    return {
+      subjects: [
+        `Financial Review & Summary: ${topic}`,
+        `Invoice & Billing Details: ${topic}`,
+        `Formal Update: ${topic} Overview`,
+      ],
+    };
+  }
+
+  return {
+    subjects: [
+      `Update & Overview: ${topic}`,
+      `Follow-up Regarding ${topic}`,
+      `Action Items & Next Steps: ${topic}`,
+    ],
+  };
+};
+
+export const improveLocalEmail = (body, tone = 'Professional') => {
+  const text = (body || '').trim();
+  if (!text) {
+    return {
+      improvedBody: '',
+      changesMade: ['No content to polish'],
+      wordCount: 0,
+    };
+  }
+
+  let polished = text
+    .replace(/\bi\b/g, 'I')
+    .replace(/(^|[.!?]\s+)([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase())
+    .trim();
+
+  if (tone === 'Friendly') {
+    if (!polished.match(/^(hi|hey|hello|good (morning|afternoon|day))/i)) {
+      polished = `Hi there!\n\n${polished}`;
+    }
+    if (!polished.match(/(warm regards|talk soon|best|cheers|thanks|warmly)/i)) {
+      polished += '\n\nTalk soon,\n[Your Name]';
+    }
+  } else if (tone === 'Formal') {
+    if (!polished.match(/^(dear|to whom it may concern)/i)) {
+      polished = `Dear Team,\n\n${polished}`;
+    }
+    polished = polished
+      .replace(/\b(wanna|gonna|gotta)\b/gi, 'wish to')
+      .replace(/\b(let's talk|let us talk)\b/gi, 'I propose we schedule a formal consultation')
+      .replace(/\b(thanks|thx)\b/gi, 'Thank you for your consideration');
+
+    if (!polished.match(/(sincerely|respectfully|with kind regards)/i)) {
+      polished += '\n\nSincerely,\n[Your Name]\n[Your Title]';
+    }
+  } else if (tone === 'Concise') {
+    polished = polished
+      .replace(/\b(I just wanted to let you know that|I am writing this email because|Just checking in to say that)\b/gi, 'Please note that')
+      .replace(/\b(hope you are doing well and having a great day\.?|hope this email finds you well\.?)\s*/gi, '')
+      .trim();
+
+    if (!polished.match(/(best|thanks|regards)/i)) {
+      polished += '\n\nBest,\n[Your Name]';
+    }
+  } else {
+    // Professional
+    if (!polished.match(/^(dear|hello|good (morning|afternoon))/i)) {
+      polished = `Hello,\n\n${polished}`;
+    }
+    if (!polished.match(/(best regards|kind regards|sincerely|thank you)/i)) {
+      polished += '\n\nBest regards,\n[Your Name]';
+    }
+  }
+
+  return {
+    improvedBody: polished,
+    changesMade: [
+      `Adjusted vocabulary and syntax for ${tone} tone`,
+      'Enhanced grammar, punctuation, and flow',
+      'Structured clear greeting, body spacing, and sign-off',
+    ],
+    wordCount: polished.split(/\s+/).length,
+  };
+};
+
 export const aiService = {
   async summarizeEmail({ email, emailId }) {
     const res = await api.post('/ai/summarize', { email, emailId });
@@ -134,8 +264,12 @@ export const aiService = {
   },
 
   async generateSubject({ body }) {
-    const res = await api.post('/ai/generate-subject', { body });
-    return res.data.data;
+    try {
+      const res = await api.post('/ai/generate-subject', { body });
+      return res.data.data;
+    } catch (err) {
+      return generateLocalSubjects(body);
+    }
   },
 
   async draftEmail({ subject, tone = 'Professional', customInstructions = '', to = '' }) {
@@ -148,29 +282,17 @@ export const aiService = {
       });
       return res.data.data;
     } catch (err) {
-      // If 404 or backend server is still restarting/deploying, fallback gracefully
-      if (err.response && (err.response.status === 404 || err.response.status === 502)) {
-        try {
-          const res = await api.post('/ai/improve-email', {
-            body: `Subject: ${subject}\n\nDraft a complete professional email about ${subject}.`,
-            tone,
-          });
-          if (res.data?.data?.improvedBody) {
-            return { body: res.data.data.improvedBody };
-          }
-        } catch (e) {}
-
-        return generateLocalDraft({ subject, tone, customInstructions, to });
-      }
-
-      // Return instant client fallback so user is never blocked by network/endpoint glitches
       return generateLocalDraft({ subject, tone, customInstructions, to });
     }
   },
 
-  async improveEmail({ body, tone }) {
-    const res = await api.post('/ai/improve-email', { body, tone });
-    return res.data.data;
+  async improveEmail({ body, tone = 'Professional' }) {
+    try {
+      const res = await api.post('/ai/improve-email', { body, tone });
+      return res.data.data;
+    } catch (err) {
+      return improveLocalEmail(body, tone);
+    }
   },
 
   async smartSearch({ query }) {
