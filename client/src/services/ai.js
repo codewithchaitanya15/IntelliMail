@@ -159,7 +159,7 @@ export const generateLocalSubjects = (body) => {
 };
 
 export const improveLocalEmail = (body, tone = 'Professional') => {
-  const text = (body || '').trim();
+  let text = (body || '').trim();
   if (!text) {
     return {
       improvedBody: '',
@@ -168,57 +168,89 @@ export const improveLocalEmail = (body, tone = 'Professional') => {
     };
   }
 
-  let polished = text
+  // 1. Strip any existing greetings
+  text = text.replace(/^(?:(?:dear|hello|hi|hey|good\s+(?:morning|afternoon|evening|day))\s*[^,\n]*[,:\n]+)+/i, '').trim();
+
+  // 2. Strip any existing closings/sign-offs
+  text = text.replace(/(?:\n+|^)(?:(?:best\s+regards|warm\s+regards|kind\s+regards|sincerely|warmly|cheers|talk\s+soon|thanks|thank\s+you|best|regards|yours\s+truly)[,:\n\s]*[\s\S]*)$/i, '').trim();
+
+  // 3. Fix basic capitalization and punctuation
+  text = text
     .replace(/\bi\b/g, 'I')
     .replace(/(^|[.!?]\s+)([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase())
     .trim();
 
-  if (tone === 'Friendly') {
-    if (!polished.match(/^(hi|hey|hello|good (morning|afternoon|day))/i)) {
-      polished = `Hi there!\n\n${polished}`;
-    }
-    if (!polished.match(/(warm regards|talk soon|best|cheers|thanks|warmly)/i)) {
-      polished += '\n\nTalk soon,\n[Your Name]';
-    }
-  } else if (tone === 'Formal') {
-    if (!polished.match(/^(dear|to whom it may concern)/i)) {
-      polished = `Dear Team,\n\n${polished}`;
-    }
-    polished = polished
-      .replace(/\b(wanna|gonna|gotta)\b/gi, 'wish to')
-      .replace(/\b(let's talk|let us talk)\b/gi, 'I propose we schedule a formal consultation')
-      .replace(/\b(thanks|thx)\b/gi, 'Thank you for your consideration');
+  let finalBody = '';
+  let greeting = '';
+  let closing = '';
 
-    if (!polished.match(/(sincerely|respectfully|with kind regards)/i)) {
-      polished += '\n\nSincerely,\n[Your Name]\n[Your Title]';
-    }
+  if (tone === 'Friendly') {
+    greeting = 'Hi there!';
+    closing = 'Warm regards,\n[Your Name]';
+
+    let friendlyText = text
+      .replace(/\b(?:I am writing to inform you that|I wish to inform you that|Please be advised that)\b/gi, 'Just wanted to let you know that')
+      .replace(/\b(?:kindly review|please review)\b/gi, 'could you take a quick look at')
+      .replace(/\b(?:at your earliest convenience)\b/gi, 'whenever you get a chance')
+      .replace(/\b(?:do not hesitate to contact me|please contact me if you have questions)\b/gi, 'feel free to reach out anytime')
+      .replace(/\b(?:thank you for your consideration)\b/gi, 'thanks so much for your help')
+      .replace(/\b(?:in accordance with)\b/gi, 'as we talked about');
+
+    finalBody = `${greeting}\n\nHope you're having a great day!\n\n${friendlyText}\n\n${closing}`;
+  } else if (tone === 'Formal') {
+    greeting = 'Dear Team,';
+    closing = 'Sincerely,\n[Your Name]\n[Your Title]';
+
+    let formalText = text
+      .replace(/\b(?:just wanted to let you know|wanted to tell you)\b/gi, 'I am writing to formally inform you')
+      .replace(/\b(?:can you check|take a look at)\b/gi, 'kindly examine the enclosed information')
+      .replace(/\b(?:let's talk|let us talk|catch up)\b/gi, 'I propose scheduling a formal consultation')
+      .replace(/\b(?:thanks|thx|thanks a lot)\b/gi, 'Thank you for your consideration')
+      .replace(/\bdon't\b/gi, 'do not')
+      .replace(/\bcan't\b/gi, 'cannot')
+      .replace(/\bwon't\b/gi, 'will not')
+      .replace(/\bI'm\b/gi, 'I am')
+      .replace(/\bwe're\b/gi, 'we are')
+      .replace(/\bit's\b/gi, 'it is')
+      .replace(/\bI've\b/gi, 'I have')
+      .replace(/\bI'd\b/gi, 'I would')
+      .replace(/\byou'll\b/gi, 'you will')
+      .replace(/\byou're\b/gi, 'you are');
+
+    finalBody = `${greeting}\n\nPlease be advised of the following details:\n\n${formalText}\n\nShould you require any further documentation or clarification, please do not hesitate to contact my office.\n\n${closing}`;
   } else if (tone === 'Concise') {
-    polished = polished
-      .replace(/\b(I just wanted to let you know that|I am writing this email because|Just checking in to say that)\b/gi, 'Please note that')
-      .replace(/\b(hope you are doing well and having a great day\.?|hope this email finds you well\.?)\s*/gi, '')
+    greeting = 'Hello,';
+    closing = 'Best,\n[Your Name]';
+
+    let conciseText = text
+      .replace(/\b(?:I hope this email finds you well\.?|hope you are doing well\.?|I just wanted to reach out and say that|I am writing this email because)\s*/gi, '')
+      .replace(/\b(?:at your earliest convenience)\b/gi, 'soon')
+      .replace(/\b(?:in order to)\b/gi, 'to')
+      .replace(/\b(?:due to the fact that)\b/gi, 'because')
+      .replace(/\b(?:please do not hesitate to reach out if you have any questions\.?)\s*/gi, '')
       .trim();
 
-    if (!polished.match(/(best|thanks|regards)/i)) {
-      polished += '\n\nBest,\n[Your Name]';
-    }
+    finalBody = `${greeting}\n\n${conciseText}\n\n${closing}`;
   } else {
     // Professional
-    if (!polished.match(/^(dear|hello|good (morning|afternoon))/i)) {
-      polished = `Hello,\n\n${polished}`;
-    }
-    if (!polished.match(/(best regards|kind regards|sincerely|thank you)/i)) {
-      polished += '\n\nBest regards,\n[Your Name]';
-    }
+    greeting = 'Hello,';
+    closing = 'Best regards,\n[Your Name]';
+
+    let profText = text
+      .replace(/\b(?:wanna|gonna|gotta)\b/gi, 'would like to')
+      .replace(/\b(?:thx)\b/gi, 'thank you');
+
+    finalBody = `${greeting}\n\nI hope this email finds you well.\n\n${profText}\n\n${closing}`;
   }
 
   return {
-    improvedBody: polished,
+    improvedBody: finalBody.trim(),
     changesMade: [
-      `Adjusted vocabulary and syntax for ${tone} tone`,
-      'Enhanced grammar, punctuation, and flow',
-      'Structured clear greeting, body spacing, and sign-off',
+      `Transformed phrasing and vocabulary to match ${tone} tone`,
+      `Applied ${tone} greeting and signature block`,
+      'Corrected grammar, punctuation, and readability',
     ],
-    wordCount: polished.split(/\s+/).length,
+    wordCount: finalBody.trim().split(/\s+/).length,
   };
 };
 

@@ -59,17 +59,17 @@ export const Compose = () => {
     }
   };
 
-  const handleImprove = async () => {
-    if (!body.trim()) {
+  const handleImprove = async (toneToUse = selectedTone) => {
+    if (!body || body.trim().length < 3) {
       toast.error('Enter some text to improve');
       return;
     }
     setIsAiLoading(true);
     try {
-      const res = await aiService.improveEmail({ body, tone: selectedTone });
-      if (res.improvedBody) {
+      const res = await aiService.improveEmail({ body, tone: toneToUse });
+      if (res && res.improvedBody) {
         setBody(res.improvedBody);
-        toast.success(`Improved in ${selectedTone} tone!`);
+        toast.success(`Polished email in ${toneToUse} tone!`);
       }
     } catch (err) {
       toast.error('Failed to polish email');
@@ -98,8 +98,14 @@ export const Compose = () => {
           <div className="flex items-center gap-2 flex-wrap">
             <select
               value={selectedTone}
-              onChange={(e) => setSelectedTone(e.target.value)}
-              className="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-700 dark:text-slate-300"
+              onChange={(e) => {
+                const newTone = e.target.value;
+                setSelectedTone(newTone);
+                if (body && body.trim().length >= 3) {
+                  handleImprove(newTone);
+                }
+              }}
+              className="text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-700 dark:text-slate-300 font-medium cursor-pointer"
             >
               <option value="Professional">Tone: Professional</option>
               <option value="Friendly">Tone: Friendly</option>
@@ -108,12 +114,13 @@ export const Compose = () => {
             </select>
 
             <button
-              onClick={handleImprove}
+              onClick={() => handleImprove(selectedTone)}
               disabled={isAiLoading}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-ai-500/15 to-brand-500/15 text-ai-700 dark:text-ai-300 border border-ai-500/30 rounded-xl text-xs font-semibold hover:bg-ai-500/25 transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-ai-500/15 to-brand-500/15 text-ai-700 dark:text-ai-300 border border-ai-500/30 rounded-xl text-xs font-semibold hover:bg-ai-500/25 transition-all cursor-pointer shadow-2xs"
+              title={`Rewrite email in ${selectedTone} tone`}
             >
               <Wand2 className={`w-3.5 h-3.5 ${isAiLoading ? 'animate-spin' : ''}`} />
-              <span>AI Polish</span>
+              <span>Apply {selectedTone} Tone</span>
             </button>
           </div>
         </div>

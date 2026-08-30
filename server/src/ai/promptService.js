@@ -151,30 +151,48 @@ ${emailBody}`,
 
   getImproveEmailPrompt(body, tone = 'Professional') {
     const toneInstructions = {
-      Professional: 'Ensure the email is clear, articulate, courteous, well-structured, and suitable for business partners, executives, and clients.',
-      Friendly: 'Adopt a warm, conversational, encouraging, and pleasant tone while keeping the communication clear and engaging.',
-      Formal: 'Use elevated vocabulary, dignified phrasing, meticulous grammar, respectful distance, and executive-level phrasing.',
-      Concise: 'Eliminate all unnecessary words, filler phrases, and redundancy. Keep sentences punchy, direct, and straightforward.',
+      Professional: `
+- Greeting: "Dear [Name]," or "Hello [Name],"
+- Style: Articulate, respectful, balanced, and business-appropriate.
+- Structure: Clear introductory context, well-structured body paragraphs, polite call-to-action.
+- Sign-off: "Best regards,\\n[Your Name]"`,
+      Friendly: `
+- Greeting: "Hi [Name]!" or "Hey there!"
+- Style: Warm, conversational, upbeat, approachable, and encouraging.
+- Structure: Cheerful opening (e.g. "Hope you're having a great day!"), conversational flow, friendly closing.
+- Sign-off: "Warm regards,\\n[Your Name]" or "Talk soon,\\n[Your Name]"`,
+      Formal: `
+- Greeting: "Dear [Sir/Madam/Team]," or "Dear [Title] [Last Name],"
+- Style: Dignified, highly sophisticated vocabulary, strict grammatical syntax, no contractions (expand all "don't" to "do not", "I'm" to "I am", "can't" to "cannot").
+- Structure: Formal executive presentation of points, structured rationale, respectful closing.
+- Sign-off: "Sincerely,\\n[Your Name]\\n[Your Title]"`,
+      Concise: `
+- Greeting: "Hi [Name]," or "Hello,"
+- Style: Ultra-succinct, highly direct, zero fluff, zero filler phrases.
+- Structure: Cuts straight to the point in 2-4 sentences or clean bullet points.
+- Sign-off: "Best,\\n[Your Name]"`,
     };
 
     return {
-      system: `You are an elite executive AI email editor and communications strategist.
-Your task is to thoroughly polish and rewrite the provided draft email into the requested tone: ${tone}.
-Tone Guidelines: ${toneInstructions[tone] || toneInstructions.Professional}
+      system: `You are an elite executive AI email copywriter and editor.
+Your task is to completely rewrite and transform the provided email draft into the exact requested tone: **${tone}**.
 
-Core Objectives:
-1. Correct all spelling, punctuation, capitalization, and grammatical errors.
-2. Elevate the phrasing and structure to match the target ${tone} tone perfectly.
-3. Preserve the core message, facts, numbers, dates, and intent while significantly improving flow and impact.
-4. Ensure proper paragraph spacing, greeting, and sign-off.
+Tone Specification for ${tone}:
+${toneInstructions[tone] || toneInstructions.Professional}
 
-Return ONLY valid JSON matching:
+Transformation Rules:
+1. Completely REPLACE any previous greetings or sign-offs with the exact tone-appropriate greeting and sign-off for ${tone}.
+2. Rewrite all sentences to strictly adhere to the ${tone} style guidelines above.
+3. Preserve all underlying facts, dates, numbers, and intent from the original draft.
+4. Correct all grammar, punctuation, capitalization, and flow.
+
+Return ONLY valid JSON in this format:
 {
-  "improvedBody": "The fully polished email text ready to send",
-  "changesMade": ["Summary of key improvement 1", "Summary of key improvement 2"],
-  "wordCount": 120
+  "improvedBody": "The completely rewritten and polished email text matching ${tone} tone",
+  "changesMade": ["Applied ${tone} tone vocabulary and formatting", "Refined sentence structure and flow"],
+  "wordCount": 100
 }`,
-      user: `Draft email content:
+      user: `Draft to rewrite in ${tone} tone:
 ${body}`,
     };
   },

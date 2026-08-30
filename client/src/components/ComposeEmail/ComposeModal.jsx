@@ -71,8 +71,8 @@ export const ComposeModal = () => {
     }
   };
 
-  const handleImproveEmail = async () => {
-    if (!composeDraft.body || composeDraft.body.trim().length < 10) {
+  const handleImproveEmail = async (toneToUse = selectedTone) => {
+    if (!composeDraft.body || composeDraft.body.trim().length < 3) {
       toast.error('Please enter message text to improve');
       return;
     }
@@ -81,12 +81,12 @@ export const ComposeModal = () => {
     try {
       const res = await aiService.improveEmail({
         body: composeDraft.body,
-        tone: selectedTone,
+        tone: toneToUse,
       });
 
-      if (res.improvedBody) {
+      if (res && res.improvedBody) {
         updateComposeDraft({ body: res.improvedBody });
-        toast.success(`Polished email in ${selectedTone} tone!`);
+        toast.success(`Polished email in ${toneToUse} tone!`);
       }
     } catch (err) {
       toast.error('Failed to improve email');
@@ -233,8 +233,14 @@ export const ComposeModal = () => {
           <div className="flex items-center gap-2">
             <select
               value={selectedTone}
-              onChange={(e) => setSelectedTone(e.target.value)}
-              className="text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-hidden"
+              onChange={(e) => {
+                const newTone = e.target.value;
+                setSelectedTone(newTone);
+                if (composeDraft.body && composeDraft.body.trim().length >= 3) {
+                  handleImproveEmail(newTone);
+                }
+              }}
+              className="text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-hidden font-medium cursor-pointer"
             >
               <option value="Professional">Tone: Professional</option>
               <option value="Friendly">Tone: Friendly</option>
@@ -244,12 +250,13 @@ export const ComposeModal = () => {
 
             <button
               type="button"
-              onClick={handleImproveEmail}
+              onClick={() => handleImproveEmail(selectedTone)}
               disabled={isAiLoading}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-ai-500/15 to-brand-500/15 text-ai-700 dark:text-ai-300 hover:from-ai-500/25 hover:to-brand-500/25 border border-ai-500/30 rounded-xl font-medium transition-all shadow-2xs cursor-pointer"
+              title={`Rewrite email in ${selectedTone} tone`}
             >
               <Wand2 className={`w-3.5 h-3.5 ${isAiLoading ? 'animate-spin' : ''}`} />
-              <span>AI Polish</span>
+              <span>Apply {selectedTone} Tone</span>
             </button>
           </div>
 
