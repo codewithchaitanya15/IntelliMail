@@ -87,6 +87,8 @@ export const useEmailStore = create((set, get) => ({
   fetchEmailDetail: async (id) => {
     set({ isDetailLoading: true, error: null });
     try {
+      // Explicitly notify backend to mark as read immediately
+      api.patch(`/emails/${id}/read`).catch(() => {});
       const res = await api.get(`/emails/${id}`);
       const email = res.data.data;
 

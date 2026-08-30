@@ -503,15 +503,16 @@ export class GmailIntegration extends BaseEmailIntegration {
   }
 
   async markAsRead(id) {
+    if (this.account.userId) {
+      try {
+        await Email.updateOne(
+          { userId: this.account.userId, id },
+          { $set: { isRead: true }, $pull: { labels: 'UNREAD' } }
+        );
+      } catch (e) {}
+    }
+
     if (this.isDemo) {
-      if (this.account.userId) {
-        try {
-          await Email.updateOne(
-            { userId: this.account.userId, id },
-            { isRead: true, $pull: { labels: 'UNREAD' } }
-          );
-        } catch (e) {}
-      }
       const emails = await this.getDemoEmails();
       const target = emails.find((e) => e.id === id);
       if (target) {
@@ -532,15 +533,16 @@ export class GmailIntegration extends BaseEmailIntegration {
   }
 
   async markAsUnread(id) {
+    if (this.account.userId) {
+      try {
+        await Email.updateOne(
+          { userId: this.account.userId, id },
+          { $set: { isRead: false }, $addToSet: { labels: 'UNREAD' } }
+        );
+      } catch (e) {}
+    }
+
     if (this.isDemo) {
-      if (this.account.userId) {
-        try {
-          await Email.updateOne(
-            { userId: this.account.userId, id },
-            { isRead: false, $addToSet: { labels: 'UNREAD' } }
-          );
-        } catch (e) {}
-      }
       const emails = await this.getDemoEmails();
       const target = emails.find((e) => e.id === id);
       if (target) {
@@ -563,15 +565,16 @@ export class GmailIntegration extends BaseEmailIntegration {
   }
 
   async starEmail(id) {
+    if (this.account.userId) {
+      try {
+        await Email.updateOne(
+          { userId: this.account.userId, id },
+          { $set: { isStarred: true }, $addToSet: { labels: 'STARRED' } }
+        );
+      } catch (e) {}
+    }
+
     if (this.isDemo) {
-      if (this.account.userId) {
-        try {
-          await Email.updateOne(
-            { userId: this.account.userId, id },
-            { isStarred: true, $addToSet: { labels: 'STARRED' } }
-          );
-        } catch (e) {}
-      }
       const emails = await this.getDemoEmails();
       const target = emails.find((e) => e.id === id);
       if (target) {
@@ -594,15 +597,16 @@ export class GmailIntegration extends BaseEmailIntegration {
   }
 
   async unstarEmail(id) {
+    if (this.account.userId) {
+      try {
+        await Email.updateOne(
+          { userId: this.account.userId, id },
+          { $set: { isStarred: false }, $pull: { labels: 'STARRED' } }
+        );
+      } catch (e) {}
+    }
+
     if (this.isDemo) {
-      if (this.account.userId) {
-        try {
-          await Email.updateOne(
-            { userId: this.account.userId, id },
-            { isStarred: false, $pull: { labels: 'STARRED' } }
-          );
-        } catch (e) {}
-      }
       const emails = await this.getDemoEmails();
       const target = emails.find((e) => e.id === id);
       if (target) {
@@ -623,15 +627,16 @@ export class GmailIntegration extends BaseEmailIntegration {
   }
 
   async archiveEmail(id) {
+    if (this.account.userId) {
+      try {
+        await Email.updateOne(
+          { userId: this.account.userId, id },
+          { $set: { isArchived: true }, $pull: { labels: 'INBOX' } }
+        );
+      } catch (e) {}
+    }
+
     if (this.isDemo) {
-      if (this.account.userId) {
-        try {
-          await Email.updateOne(
-            { userId: this.account.userId, id },
-            { isArchived: true, $pull: { labels: 'INBOX' } }
-          );
-        } catch (e) {}
-      }
       const emails = await this.getDemoEmails();
       const target = emails.find((e) => e.id === id);
       if (target) {
@@ -674,7 +679,7 @@ export class GmailIntegration extends BaseEmailIntegration {
         try {
           await Email.updateOne(
             { userId: this.account.userId, id },
-            { isTrash: true, labels: ['TRASH'] }
+            { $set: { isTrash: true, labels: ['TRASH'] } }
           );
         } catch (e) {}
       }
@@ -714,7 +719,7 @@ export class GmailIntegration extends BaseEmailIntegration {
         try {
           await Email.updateOne(
             { userId: this.account.userId, id },
-            { isTrash: true, labels: ['TRASH'] }
+            { $set: { isTrash: true, labels: ['TRASH'] } }
           );
         } catch (e) {}
       }
@@ -744,7 +749,7 @@ export class GmailIntegration extends BaseEmailIntegration {
         try {
           await Email.updateOne(
             { userId: this.account.userId, id },
-            { isTrash: false, isArchived: false, labels: ['INBOX'] }
+            { $set: { isTrash: false, isArchived: false, labels: ['INBOX'] } }
           );
         } catch (e) {}
       }

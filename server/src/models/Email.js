@@ -190,16 +190,45 @@ export const Email = {
 
   async updateOne(query, update) {
     if (mongoose.connection.readyState === 1) {
-      return MongooseEmail.updateOne(query, update);
+      const normalizedUpdate = {};
+      const setFields = {};
+
+      for (const [key, value] of Object.entries(update)) {
+        if (key.startsWith('$')) {
+          normalizedUpdate[key] = value;
+        } else {
+          setFields[key] = value;
+        }
+      }
+
+      if (Object.keys(setFields).length > 0) {
+        normalizedUpdate.$set = {
+          ...(normalizedUpdate.$set || {}),
+          ...setFields,
+        };
+      }
+
+      return MongooseEmail.updateOne(query, normalizedUpdate);
     }
+
     const doc = await this.findOne(query);
     if (doc) {
       if (update.$set) Object.assign(doc, update.$set);
-      if (update.isTrash !== undefined) doc.isTrash = update.isTrash;
-      if (update.isArchived !== undefined) doc.isArchived = update.isArchived;
-      if (update.isStarred !== undefined) doc.isStarred = update.isStarred;
-      if (update.isRead !== undefined) doc.isRead = update.isRead;
-      if (update.labels) doc.labels = update.labels;
+      for (const [k, v] of Object.entries(update)) {
+        if (!k.startsWith('$')) {
+          doc[k] = v;
+        }
+      }
+      if (update.$pull && update.$pull.labels && Array.isArray(doc.labels)) {
+        const pullTarget = update.$pull.labels;
+        doc.labels = doc.labels.filter((l) => l !== pullTarget);
+      }
+      if (update.$addToSet && update.$addToSet.labels && Array.isArray(doc.labels)) {
+        const addTarget = update.$addToSet.labels;
+        if (!doc.labels.includes(addTarget)) {
+          doc.labels.push(addTarget);
+        }
+      }
       doc.updatedAt = new Date();
       return { modifiedCount: 1 };
     }
