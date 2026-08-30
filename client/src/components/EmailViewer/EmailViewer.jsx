@@ -77,26 +77,28 @@ export const EmailViewer = ({ emailId }) => {
     currentEmail.labels?.includes('TRASH') ||
     useEmailStore.getState().activeFolder === 'trash';
 
+  const targetEmailId = emailId || currentEmail?.id || currentEmail?._id;
+
   const handleStarToggle = () => {
     if (currentEmail.isStarred) {
-      unstarEmail(currentEmail.id);
+      unstarEmail(targetEmailId);
     } else {
-      starEmail(currentEmail.id);
+      starEmail(targetEmailId);
     }
   };
 
   const handleArchive = async () => {
-    await archiveEmail(currentEmail.id);
+    await archiveEmail(targetEmailId);
     navigate(-1);
   };
 
   const handleDelete = async () => {
-    await deleteEmail(currentEmail.id, isTrashed);
+    await deleteEmail(targetEmailId, isTrashed);
     navigate(-1);
   };
 
   const handleRestore = async () => {
-    await restoreEmail(currentEmail.id);
+    await restoreEmail(targetEmailId);
     navigate(-1);
   };
 
@@ -105,9 +107,9 @@ export const EmailViewer = ({ emailId }) => {
     try {
       const summary = await aiService.summarizeEmail({
         email: currentEmail,
-        emailId: currentEmail.id,
+        emailId: targetEmailId,
       });
-      updateEmailAISummary(currentEmail.id, summary);
+      updateEmailAISummary(targetEmailId, summary);
       toast.success('Generated AI summary!');
     } catch (err) {
       toast.error('Failed to generate summary');

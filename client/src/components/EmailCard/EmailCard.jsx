@@ -19,41 +19,42 @@ export const EmailCard = ({ email }) => {
     activeFolder,
   } = useEmailStore();
 
-  const isSelected = selectedEmailIds.includes(email.id);
+  const emailId = email.id || email._id;
+  const isSelected = selectedEmailIds.includes(emailId) || (email.id && selectedEmailIds.includes(email.id)) || (email._id && selectedEmailIds.includes(email._id));
   const sender = parseSender(email.sender || email.from);
   const isTrashed = email.isTrash || email.labels?.includes('TRASH') || activeFolder === 'trash';
 
   const handleStarClick = (e) => {
     e.stopPropagation();
     if (email.isStarred) {
-      unstarEmail(email.id);
+      unstarEmail(emailId);
     } else {
-      starEmail(email.id);
+      starEmail(emailId);
     }
   };
 
   const handleCheckboxClick = (e) => {
     e.stopPropagation();
-    toggleSelectEmail(email.id);
+    toggleSelectEmail(emailId);
   };
 
   const handleArchiveClick = (e) => {
     e.stopPropagation();
-    archiveEmail(email.id);
+    archiveEmail(emailId);
   };
 
   const handleDeleteClick = (e) => {
     e.stopPropagation();
-    deleteEmail(email.id, isTrashed);
+    deleteEmail(emailId, isTrashed);
   };
 
   const handleRestoreClick = (e) => {
     e.stopPropagation();
-    restoreEmail(email.id);
+    restoreEmail(emailId);
   };
 
   const handleClick = () => {
-    navigate(`/email/${email.id}`);
+    navigate(`/email/${emailId}`);
   };
 
   return (

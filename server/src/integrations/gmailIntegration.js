@@ -359,7 +359,7 @@ export class GmailIntegration extends BaseEmailIntegration {
     if (this.account.userId) {
       try {
         const dbEmails = await Email.find({ userId: this.account.userId });
-        if (dbEmails && dbEmails.length > 0) {
+        if (dbEmails) {
           mockEmailsStore.set(key, dbEmails);
           return dbEmails;
         }
@@ -377,13 +377,13 @@ export class GmailIntegration extends BaseEmailIntegration {
   async getStats() {
     if (this.isDemo) {
       const allEmails = await this.getDemoEmails();
-      const inboxEmails = allEmails.filter((e) => !e.isArchived && !e.isTrash);
-      const starredEmails = allEmails.filter((e) => e.isStarred && !e.isTrash);
+      const inboxEmails = allEmails.filter((e) => !e.isArchived && !e.isTrash && !e.labels?.includes('TRASH'));
+      const starredEmails = allEmails.filter((e) => e.isStarred && !e.isTrash && !e.labels?.includes('TRASH'));
       const unreadInbox = inboxEmails.filter((e) => !e.isRead);
       const highPriority = inboxEmails.filter((e) => e.priority === 'HIGH');
-      const trashEmails = allEmails.filter((e) => e.isTrash);
-      const archiveEmails = allEmails.filter((e) => e.isArchived && !e.isTrash);
-      const sentEmails = allEmails.filter((e) => e.from?.includes(this.account.email) && !e.isTrash);
+      const trashEmails = allEmails.filter((e) => e.isTrash || e.labels?.includes('TRASH'));
+      const archiveEmails = allEmails.filter((e) => e.isArchived && !e.isTrash && !e.labels?.includes('TRASH'));
+      const sentEmails = allEmails.filter((e) => e.from?.includes(this.account.email) && !e.isTrash && !e.labels?.includes('TRASH'));
 
       return {
         unreadCount: unreadInbox.length,
@@ -405,8 +405,8 @@ export class GmailIntegration extends BaseEmailIntegration {
       }
 
       if (dbEmails && dbEmails.length > 0) {
-        const inboxEmails = dbEmails.filter((e) => !e.isArchived && !e.isTrash);
-        const starredEmails = dbEmails.filter((e) => e.isStarred && !e.isTrash);
+        const inboxEmails = dbEmails.filter((e) => !e.isArchived && !e.isTrash && !e.labels?.includes('TRASH'));
+        const starredEmails = dbEmails.filter((e) => e.isStarred && !e.isTrash && !e.labels?.includes('TRASH'));
         const unreadInbox = inboxEmails.filter((e) => !e.isRead);
         const highPriority = inboxEmails.filter((e) => e.priority === 'HIGH');
 
@@ -415,8 +415,8 @@ export class GmailIntegration extends BaseEmailIntegration {
           starredCount: starredEmails.length,
           highPriorityCount: highPriority.length,
           inboxCount: inboxEmails.length,
-          trashCount: dbEmails.filter((e) => e.isTrash).length,
-          archiveCount: dbEmails.filter((e) => e.isArchived && !e.isTrash).length,
+          trashCount: dbEmails.filter((e) => e.isTrash || e.labels?.includes('TRASH')).length,
+          archiveCount: dbEmails.filter((e) => e.isArchived && !e.isTrash && !e.labels?.includes('TRASH')).length,
           totalCount: inboxEmails.length,
         };
       }
@@ -447,15 +447,15 @@ export class GmailIntegration extends BaseEmailIntegration {
 
       // Filter by folder
       if (folder === 'inbox') {
-        emails = emails.filter((e) => !e.isArchived && !e.isTrash);
+        emails = emails.filter((e) => !e.isArchived && !e.isTrash && !e.labels?.includes('TRASH'));
       } else if (folder === 'starred') {
-        emails = emails.filter((e) => e.isStarred && !e.isTrash);
+        emails = emails.filter((e) => e.isStarred && !e.isTrash && !e.labels?.includes('TRASH'));
       } else if (folder === 'sent') {
-        emails = emails.filter((e) => e.from?.includes(this.account.email) && !e.isTrash);
+        emails = emails.filter((e) => e.from?.includes(this.account.email) && !e.isTrash && !e.labels?.includes('TRASH'));
       } else if (folder === 'archive') {
-        emails = emails.filter((e) => e.isArchived && !e.isTrash);
+        emails = emails.filter((e) => e.isArchived && !e.isTrash && !e.labels?.includes('TRASH'));
       } else if (folder === 'trash') {
-        emails = emails.filter((e) => e.isTrash);
+        emails = emails.filter((e) => e.isTrash || e.labels?.includes('TRASH'));
       }
 
       // Filter by search query
@@ -727,8 +727,8 @@ export class GmailIntegration extends BaseEmailIntegration {
   async deleteEmail(id, forcePermanent = false) {
     if (this.isDemo) {
       const emails = await this.getDemoEmails();
-      const target = emails.find((e) => e.id === id);
-      const isAlreadyTrash = target ? target.isTrash : false;
+      const target = emails.find((e) => e.id === id || e._id?.toString() === id);
+      const isAlreadyTrash = Boolean(target && (target.isTrash || target.labels?.includes('TRASH')));
 
       if (isAlreadyTrash || forcePermanent) {
         // Permanently remove from database and demo store
@@ -749,13 +749,15 @@ export class GmailIntegration extends BaseEmailIntegration {
         try {
           await Email.updateOne(
             { userId: this.account.userId, id },
-            { $set: { isTrash: true, labels: ['TRASH'] } }
+            { $set: { isTrash: true, isStarred: false, isArchived: false, labels: ['TRASH'] } }
           );
         } catch (e) {}
       }
       if (target) {
         target.isTrash = true;
-        target.labels = [...(target.labels || []).filter((l) => l !== 'INBOX'), 'TRASH'];
+        target.isStarred = false;
+        target.isArchived = false;
+        target.labels = ['TRASH'];
         this.saveDemoEmails(emails);
       }
       return { success: true, id, permanent: false };

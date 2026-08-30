@@ -177,13 +177,23 @@ export const Email = {
 
   async findOne(query) {
     if (mongoose.connection.readyState === 1) {
-      return MongooseEmail.findOne(query);
+      let mQuery = query;
+      const emailId = query.id || query._id;
+      if (emailId && !query.$or) {
+        mQuery = {
+          $or: [query, { id: emailId }, { _id: emailId }],
+        };
+      }
+      return MongooseEmail.findOne(mQuery);
     }
     const userPrefix = query.userId?.toString();
+    const emailId = query.id || query._id;
     for (const [key, doc] of inMemoryEmails.entries()) {
-      if (userPrefix && !key.startsWith(userPrefix)) continue;
-      if (query.id && doc.id === query.id) return doc;
-      if (query._id && (doc._id === query._id || doc.id === query._id)) return doc;
+      if (!userPrefix || key.startsWith(userPrefix)) {
+        if (emailId && (doc.id === emailId || doc._id === emailId || key.endsWith(`_${emailId}`))) {
+          return doc;
+        }
+      }
     }
     return null;
   },
@@ -208,7 +218,15 @@ export const Email = {
         };
       }
 
-      return MongooseEmail.updateOne(query, normalizedUpdate);
+      let mQuery = query;
+      const emailId = query.id || query._id;
+      if (emailId && !query.$or) {
+        mQuery = {
+          $or: [query, { id: emailId }, { _id: emailId }],
+        };
+      }
+
+      return MongooseEmail.updateOne(mQuery, normalizedUpdate);
     }
 
     const doc = await this.findOne(query);
@@ -258,13 +276,25 @@ export const Email = {
 
   async deleteMany(query) {
     if (mongoose.connection.readyState === 1) {
+      if (query.$or) {
+        return MongooseEmail.deleteMany(query);
+      }
+      const emailId = query.id || query._id;
+      if (emailId) {
+        return MongooseEmail.deleteMany({
+          $or: [query, { id: emailId }, { _id: emailId }],
+        });
+      }
       return MongooseEmail.deleteMany(query);
     }
     const userPrefix = query.userId?.toString();
     let count = 0;
     for (const [key, doc] of inMemoryEmails.entries()) {
-      if (userPrefix && key.startsWith(userPrefix)) {
+      if (!userPrefix || key.startsWith(userPrefix)) {
         if (query.id && query.id.$in && (query.id.$in.includes(doc.id) || query.id.$in.includes(doc._id))) {
+          inMemoryEmails.delete(key);
+          count++;
+        } else if (query.id && (doc.id === query.id || doc._id === query.id)) {
           inMemoryEmails.delete(key);
           count++;
         }
