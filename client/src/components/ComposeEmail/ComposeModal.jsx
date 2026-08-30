@@ -72,25 +72,39 @@ export const ComposeModal = () => {
   };
 
   const handleDraftEmailFromSubject = async () => {
-    if (!composeDraft.subject || composeDraft.subject.trim().length < 3) {
-      toast.error('Please write or generate a subject line first so AI knows what to write');
+    const currentSubject = composeDraft.subject?.trim();
+    if (!currentSubject || currentSubject.length < 2) {
+      toast.error('Please enter a subject line first so AI knows what to write');
       return;
     }
 
     setIsAiLoading(true);
     try {
       const res = await aiService.draftEmail({
-        subject: composeDraft.subject,
+        subject: currentSubject,
         tone: selectedTone,
-        to: composeDraft.to,
+        to: composeDraft.to || '',
       });
 
-      if (res && res.body) {
-        updateComposeDraft({ body: res.body });
+      const bodyText =
+        res?.body ||
+        res?.email ||
+        res?.emailBody ||
+        res?.message ||
+        res?.draft ||
+        res?.text ||
+        res?.content ||
+        (typeof res === 'string' ? res : '');
+
+      if (bodyText) {
+        updateComposeDraft({ body: bodyText });
         toast.success('AI drafted your entire email!');
+      } else {
+        toast.error('Could not generate draft. Please try again.');
       }
     } catch (err) {
-      toast.error('Failed to write email with AI');
+      const errMsg = err.response?.data?.message || err.message || 'Failed to write email with AI';
+      toast.error(errMsg);
     } finally {
       setIsAiLoading(false);
     }

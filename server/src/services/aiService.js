@@ -263,10 +263,36 @@ export const AIService = {
 
   // 11. Draft Full Email from Subject
   async draftEmail({ subject, tone = 'Professional', customInstructions = '', to = '' }) {
-    return this.runAIStructured(
+    const rawResult = await this.runAIStructured(
       PromptService.getDraftEmailPrompt,
       AIFallbackService.draftEmail,
       { subject, tone, customInstructions, to }
     );
+
+    let body = '';
+    if (typeof rawResult === 'string') {
+      body = rawResult;
+    } else if (rawResult && typeof rawResult === 'object') {
+      body =
+        rawResult.body ||
+        rawResult.email ||
+        rawResult.emailBody ||
+        rawResult.message ||
+        rawResult.draft ||
+        rawResult.text ||
+        rawResult.content ||
+        '';
+    }
+
+    if (!body || body.trim().length === 0) {
+      const fallback = AIFallbackService.draftEmail({ subject, tone, customInstructions, to });
+      body = fallback.body;
+    }
+
+    return {
+      body: body.trim(),
+      keyPoints: rawResult?.keyPoints || [subject],
+      model: rawResult?.model || 'deterministic-nlp',
+    };
   },
 };

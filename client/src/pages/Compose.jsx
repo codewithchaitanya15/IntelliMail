@@ -60,23 +60,38 @@ export const Compose = () => {
   };
 
   const handleDraftEmailFromSubject = async () => {
-    if (!subject || subject.trim().length < 3) {
+    const currentSubject = subject?.trim();
+    if (!currentSubject || currentSubject.length < 2) {
       toast.error('Please enter a subject line first so AI knows what to write');
       return;
     }
     setIsAiLoading(true);
     try {
       const res = await aiService.draftEmail({
-        subject,
+        subject: currentSubject,
         tone: selectedTone,
-        to,
+        to: to || '',
       });
-      if (res && res.body) {
-        setBody(res.body);
+
+      const bodyText =
+        res?.body ||
+        res?.email ||
+        res?.emailBody ||
+        res?.message ||
+        res?.draft ||
+        res?.text ||
+        res?.content ||
+        (typeof res === 'string' ? res : '');
+
+      if (bodyText) {
+        setBody(bodyText);
         toast.success('AI drafted your entire email!');
+      } else {
+        toast.error('Could not generate draft. Please try again.');
       }
     } catch (err) {
-      toast.error('Failed to write email with AI');
+      const errMsg = err.response?.data?.message || err.message || 'Failed to write email with AI';
+      toast.error(errMsg);
     } finally {
       setIsAiLoading(false);
     }
