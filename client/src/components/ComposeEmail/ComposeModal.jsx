@@ -199,31 +199,6 @@ export const ComposeModal = () => {
     }
   };
 
-  const handleTranslateDraft = async (targetLanguage) => {
-    setShowTranslateMenu(false);
-    if (!composeDraft.body || composeDraft.body.trim().length < 3) {
-      toast.error('Please enter message text to translate');
-      return;
-    }
-
-    setIsAiLoading(true);
-    try {
-      const res = await aiService.translateEmail({
-        text: composeDraft.body,
-        targetLanguage,
-      });
-
-      if (res && res.translatedText) {
-        updateComposeDraft({ body: res.translatedText });
-        toast.success(`Translated draft into ${targetLanguage}!`);
-      }
-    } catch (err) {
-      toast.error('Translation failed');
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
   const handleSelectTemplate = (template) => {
     updateComposeDraft({
       subject: template.subject,
@@ -231,8 +206,6 @@ export const ComposeModal = () => {
     });
     toast.success(`Loaded "${template.title}" template!`);
   };
-
-  const TRANSLATE_LANGUAGES = ['Spanish', 'French', 'German', 'Japanese', 'Hindi', 'Chinese', 'Italian', 'Portuguese', 'Arabic'];
 
   return (
     <>
@@ -401,7 +374,7 @@ export const ComposeModal = () => {
 
           {/* Bottom AI Toolbar & Actions */}
           <div className="p-3 bg-slate-50 dark:bg-slate-950/60 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
-            {/* Clickable AI Tone Pills + Translation */}
+            {/* Clickable AI Tone Pills */}
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 mr-0.5 flex items-center gap-1">
                 <Wand2 className={`w-3 h-3 text-ai-500 ${isAiLoading ? 'animate-spin' : ''}`} />
@@ -427,39 +400,6 @@ export const ComposeModal = () => {
                   </button>
                 );
               })}
-
-              {/* Translate Draft Dropdown */}
-              <div className="relative inline-block ml-1">
-                <button
-                  type="button"
-                  onClick={() => setShowTranslateMenu((prev) => !prev)}
-                  disabled={isAiLoading}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/70 border border-slate-200 dark:border-slate-700 cursor-pointer"
-                  title="Translate email draft into another language"
-                >
-                  <Languages className="w-3.5 h-3.5 text-brand-500" />
-                  <span>Translate</span>
-                  <ChevronDown className="w-3 h-3 text-slate-400" />
-                </button>
-
-                {showTranslateMenu && (
-                  <div className="absolute left-0 bottom-full mb-1 z-50 w-36 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl py-1 animate-in fade-in zoom-in-95 duration-100">
-                    <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      Target Language
-                    </div>
-                    {TRANSLATE_LANGUAGES.map((lang) => (
-                      <button
-                        key={lang}
-                        type="button"
-                        onClick={() => handleTranslateDraft(lang)}
-                        className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-brand-50 dark:hover:bg-brand-950/40 hover:text-brand-600 transition-colors cursor-pointer"
-                      >
-                        {lang}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
 
             {/* Send and Cancel */}

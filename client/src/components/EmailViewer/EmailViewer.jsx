@@ -67,21 +67,11 @@ export const EmailViewer = ({ emailId }) => {
   const [isSecurityLoading, setIsSecurityLoading] = useState(false);
   const [showSecurityDetails, setShowSecurityDetails] = useState(false);
 
-  // Translation State
-  const [translatedBody, setTranslatedBody] = useState(null);
-  const [selectedLanguage, setSelectedLanguage] = useState(null);
-  const [isTranslating, setIsTranslating] = useState(false);
-  const [showTranslateMenu, setShowTranslateMenu] = useState(false);
-
   const replySectionRef = useRef(null);
-
-  const TRANSLATE_LANGUAGES = ['Spanish', 'French', 'German', 'Japanese', 'Hindi', 'Chinese', 'Italian', 'Portuguese', 'Arabic'];
 
   useEffect(() => {
     if (emailId) {
       fetchEmailDetail(emailId);
-      setTranslatedBody(null);
-      setSelectedLanguage(null);
       setSecurityData(null);
     }
   }, [emailId]);
@@ -112,33 +102,6 @@ export const EmailViewer = ({ emailId }) => {
     } finally {
       setIsSecurityLoading(false);
     }
-  };
-
-  const handleTranslate = async (targetLanguage) => {
-    setShowTranslateMenu(false);
-    if (!currentEmail?.body && !currentEmail?.snippet) return;
-
-    setIsTranslating(true);
-    try {
-      const res = await aiService.translateEmail({
-        text: currentEmail.body || currentEmail.snippet,
-        targetLanguage,
-      });
-      if (res && res.translatedText) {
-        setTranslatedBody(res.translatedText);
-        setSelectedLanguage(targetLanguage);
-        toast.success(`Translated into ${targetLanguage}!`);
-      }
-    } catch (e) {
-      toast.error('Translation failed');
-    } finally {
-      setIsTranslating(false);
-    }
-  };
-
-  const handleResetTranslation = () => {
-    setTranslatedBody(null);
-    setSelectedLanguage(null);
   };
 
   if (isDetailLoading || !currentEmail) {
@@ -313,37 +276,6 @@ export const EmailViewer = ({ emailId }) => {
             <Reply className="w-3.5 h-3.5" />
             <span>{showReplyEditor ? 'Hide Reply' : 'AI Reply'}</span>
           </button>
-
-          {/* Translate Dropdown */}
-          <div className="relative inline-block">
-            <button
-              onClick={() => setShowTranslateMenu((prev) => !prev)}
-              disabled={isTranslating}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-medium transition-colors cursor-pointer"
-              title="Translate email body"
-            >
-              <Languages className={`w-3.5 h-3.5 text-brand-500 ${isTranslating ? 'animate-spin' : ''}`} />
-              <span>{selectedLanguage ? `Translated (${selectedLanguage})` : 'Translate'}</span>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
-            </button>
-
-            {showTranslateMenu && (
-              <div className="absolute right-0 top-full mt-1 z-50 w-36 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl py-1 animate-in fade-in zoom-in-95 duration-100">
-                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Translate to
-                </div>
-                {TRANSLATE_LANGUAGES.map((lang) => (
-                  <button
-                    key={lang}
-                    onClick={() => handleTranslate(lang)}
-                    className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-brand-50 dark:hover:bg-brand-950/40 hover:text-brand-600 transition-colors cursor-pointer"
-                  >
-                    {lang}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
 
           {/* Explain Email */}
           <button
@@ -527,28 +459,12 @@ export const EmailViewer = ({ emailId }) => {
           </div>
         </div>
 
-        {/* Translation Banner (if translated) */}
-        {translatedBody && (
-          <div className="p-3 bg-brand-500/10 border border-brand-500/20 rounded-2xl flex items-center justify-between text-xs text-brand-900 dark:text-brand-200">
-            <div className="flex items-center gap-2">
-              <Languages className="w-4 h-4 text-brand-500" />
-              <span>Translated into <strong>{selectedLanguage}</strong> via Gemini AI</span>
-            </div>
-            <button
-              onClick={handleResetTranslation}
-              className="font-semibold underline hover:text-brand-600 cursor-pointer"
-            >
-              Show Original English
-            </button>
-          </div>
-        )}
-
         {/* Email Body */}
         <div className="p-6 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800/80 shadow-xs">
           <div
-            className="prose dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 text-sm leading-relaxed overflow-x-auto whitespace-pre-wrap"
+            className="prose dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 text-sm leading-relaxed overflow-x-auto"
             dangerouslySetInnerHTML={{
-              __html: sanitizeEmailBody(translatedBody || currentEmail.body || currentEmail.snippet),
+              __html: sanitizeEmailBody(currentEmail.body || currentEmail.snippet),
             }}
           />
         </div>

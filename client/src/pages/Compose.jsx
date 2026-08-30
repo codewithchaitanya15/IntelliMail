@@ -179,38 +179,11 @@ export const Compose = () => {
     }
   };
 
-  const handleTranslateDraft = async (targetLanguage) => {
-    setShowTranslateMenu(false);
-    if (!body || body.trim().length < 3) {
-      toast.error('Please enter message text to translate');
-      return;
-    }
-
-    setIsAiLoading(true);
-    try {
-      const res = await aiService.translateEmail({
-        text: body,
-        targetLanguage,
-      });
-
-      if (res && res.translatedText) {
-        setBody(res.translatedText);
-        toast.success(`Translated draft into ${targetLanguage}!`);
-      }
-    } catch (err) {
-      toast.error('Translation failed');
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
   const handleSelectTemplate = (template) => {
     setSubject(template.subject);
     setBody(template.body);
     toast.success(`Loaded "${template.title}" template!`);
   };
-
-  const TRANSLATE_LANGUAGES = ['Spanish', 'French', 'German', 'Japanese', 'Hindi', 'Chinese', 'Italian', 'Portuguese', 'Arabic'];
 
   return (
     <>
@@ -289,39 +262,6 @@ export const Compose = () => {
                     </button>
                   );
                 })}
-              </div>
-
-              {/* Translate Draft Dropdown */}
-              <div className="relative inline-block">
-                <button
-                  type="button"
-                  onClick={() => setShowTranslateMenu((prev) => !prev)}
-                  disabled={isAiLoading}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 cursor-pointer"
-                  title="Translate email draft into another language"
-                >
-                  <Languages className="w-3.5 h-3.5 text-brand-500" />
-                  <span>Translate</span>
-                  <ChevronDown className="w-3 h-3 text-slate-400" />
-                </button>
-
-                {showTranslateMenu && (
-                  <div className="absolute right-0 top-full mt-1 z-50 w-36 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl py-1 animate-in fade-in zoom-in-95 duration-100">
-                    <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      Target Language
-                    </div>
-                    {TRANSLATE_LANGUAGES.map((lang) => (
-                      <button
-                        key={lang}
-                        type="button"
-                        onClick={() => handleTranslateDraft(lang)}
-                        className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-brand-50 dark:hover:bg-brand-950/40 hover:text-brand-600 transition-colors cursor-pointer"
-                      >
-                        {lang}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           </div>
