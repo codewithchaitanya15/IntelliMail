@@ -71,45 +71,6 @@ export const ComposeModal = () => {
     }
   };
 
-  const handleDraftEmailFromSubject = async () => {
-    const currentSubject = composeDraft.subject?.trim();
-    if (!currentSubject || currentSubject.length < 2) {
-      toast.error('Please enter a subject line first so AI knows what to write');
-      return;
-    }
-
-    setIsAiLoading(true);
-    try {
-      const res = await aiService.draftEmail({
-        subject: currentSubject,
-        tone: selectedTone,
-        to: composeDraft.to || '',
-      });
-
-      const bodyText =
-        res?.body ||
-        res?.email ||
-        res?.emailBody ||
-        res?.message ||
-        res?.draft ||
-        res?.text ||
-        res?.content ||
-        (typeof res === 'string' ? res : '');
-
-      if (bodyText) {
-        updateComposeDraft({ body: bodyText });
-        toast.success('AI drafted your entire email!');
-      } else {
-        toast.error('Could not generate draft. Please try again.');
-      }
-    } catch (err) {
-      const errMsg = err.response?.data?.message || err.message || 'Failed to write email with AI';
-      toast.error(errMsg);
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
   const handleImproveEmail = async () => {
     if (!composeDraft.body || composeDraft.body.trim().length < 10) {
       toast.error('Please enter message text to improve');
@@ -139,7 +100,7 @@ export const ComposeModal = () => {
       className={`fixed z-50 bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-200 overflow-hidden ${
         isMaximized
           ? 'inset-4 rounded-3xl'
-          : 'bottom-0 right-4 sm:right-8 w-full sm:w-[640px] h-[600px] rounded-t-3xl border-b-0'
+          : 'bottom-0 right-4 sm:right-8 w-full sm:w-[620px] h-[580px] rounded-t-3xl border-b-0'
       }`}
     >
       {/* Top Header */}
@@ -232,48 +193,35 @@ export const ComposeModal = () => {
           </div>
         )}
 
-        {/* Subject Field + AI Generator Actions */}
-        <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800/80 flex items-center gap-2 flex-wrap sm:flex-nowrap">
+        {/* Subject Field + AI Generator */}
+        <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
           <span className="text-slate-400 font-medium w-12">Subject:</span>
           <input
             type="text"
             value={composeDraft.subject}
             onChange={(e) => updateComposeDraft({ subject: e.target.value })}
             placeholder="Subject of your email..."
-            className="flex-1 min-w-[140px] bg-transparent border-none p-0 focus:outline-hidden text-slate-900 dark:text-slate-100 font-semibold placeholder:text-slate-400 placeholder:font-normal"
+            className="flex-1 bg-transparent border-none p-0 focus:outline-hidden text-slate-900 dark:text-slate-100 font-semibold placeholder:text-slate-400 placeholder:font-normal"
           />
-          <div className="flex items-center gap-1.5 ml-auto">
-            <button
-              type="button"
-              onClick={handleGenerateSubject}
-              disabled={isAiLoading}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-ai-500/10 text-ai-600 dark:text-ai-400 hover:bg-ai-500/20 text-[11px] font-medium transition-colors cursor-pointer"
-              title="Generate smart subject from body content"
-            >
-              <Sparkles className="w-3 h-3" />
-              <span>AI Subject</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDraftEmailFromSubject}
-              disabled={isAiLoading}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-brand-600/10 text-brand-600 dark:text-brand-400 hover:bg-brand-600/20 border border-brand-500/30 text-[11px] font-semibold transition-all cursor-pointer shadow-2xs"
-              title="Auto-write complete email body based on this subject"
-            >
-              <Wand2 className={`w-3 h-3 ${isAiLoading ? 'animate-spin' : ''}`} />
-              <span>Auto-Write Email</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleGenerateSubject}
+            disabled={isAiLoading}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-ai-500/10 text-ai-600 dark:text-ai-400 hover:bg-ai-500/20 text-[11px] font-medium transition-colors cursor-pointer"
+            title="Generate smart subject from body content"
+          >
+            <Sparkles className="w-3 h-3" />
+            <span>AI Subject</span>
+          </button>
         </div>
         {errors.subject && <p className="px-4 py-0.5 text-[10px] text-rose-500">{errors.subject}</p>}
 
         {/* Email Body */}
-        <div className="flex-1 p-4 overflow-y-auto relative">
+        <div className="flex-1 p-4 overflow-y-auto">
           <textarea
             value={composeDraft.body}
             onChange={(e) => updateComposeDraft({ body: e.target.value })}
-            placeholder="Write your email here, or click 'Auto-Write Email' above to let AI compose it automatically from your subject..."
+            placeholder="Write your email here..."
             className="w-full h-full bg-transparent border-none p-0 focus:outline-hidden text-slate-800 dark:text-slate-200 placeholder:text-slate-400 resize-none leading-relaxed text-xs"
           />
         </div>
@@ -281,8 +229,8 @@ export const ComposeModal = () => {
 
         {/* Bottom AI Toolbar & Actions */}
         <div className="p-3 bg-slate-50 dark:bg-slate-950/60 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
-          {/* AI Tone, Auto-Write and Polish */}
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* AI Tone and Polish */}
+          <div className="flex items-center gap-2">
             <select
               value={selectedTone}
               onChange={(e) => setSelectedTone(e.target.value)}
@@ -293,17 +241,6 @@ export const ComposeModal = () => {
               <option value="Formal">Tone: Formal</option>
               <option value="Concise">Tone: Concise</option>
             </select>
-
-            <button
-              type="button"
-              onClick={handleDraftEmailFromSubject}
-              disabled={isAiLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-brand-500/15 to-indigo-500/15 text-brand-700 dark:text-brand-300 hover:from-brand-500/25 hover:to-indigo-500/25 border border-brand-500/30 rounded-xl font-medium transition-all shadow-2xs cursor-pointer"
-              title="Auto-write full email draft from subject"
-            >
-              <Sparkles className={`w-3.5 h-3.5 ${isAiLoading ? 'animate-spin' : ''}`} />
-              <span>Write from Subject</span>
-            </button>
 
             <button
               type="button"
@@ -321,7 +258,7 @@ export const ComposeModal = () => {
             <button
               type="button"
               onClick={closeCompose}
-              className="px-3 py-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl font-medium transition-colors"
+              className="px-3 py-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl font-medium transition-colors cursor-pointer"
             >
               Discard
             </button>

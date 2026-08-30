@@ -59,44 +59,6 @@ export const Compose = () => {
     }
   };
 
-  const handleDraftEmailFromSubject = async () => {
-    const currentSubject = subject?.trim();
-    if (!currentSubject || currentSubject.length < 2) {
-      toast.error('Please enter a subject line first so AI knows what to write');
-      return;
-    }
-    setIsAiLoading(true);
-    try {
-      const res = await aiService.draftEmail({
-        subject: currentSubject,
-        tone: selectedTone,
-        to: to || '',
-      });
-
-      const bodyText =
-        res?.body ||
-        res?.email ||
-        res?.emailBody ||
-        res?.message ||
-        res?.draft ||
-        res?.text ||
-        res?.content ||
-        (typeof res === 'string' ? res : '');
-
-      if (bodyText) {
-        setBody(bodyText);
-        toast.success('AI drafted your entire email!');
-      } else {
-        toast.error('Could not generate draft. Please try again.');
-      }
-    } catch (err) {
-      const errMsg = err.response?.data?.message || err.message || 'Failed to write email with AI';
-      toast.error(errMsg);
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
   const handleImprove = async () => {
     if (!body.trim()) {
       toast.error('Enter some text to improve');
@@ -144,16 +106,6 @@ export const Compose = () => {
               <option value="Formal">Tone: Formal</option>
               <option value="Concise">Tone: Concise</option>
             </select>
-
-            <button
-              type="button"
-              onClick={handleDraftEmailFromSubject}
-              disabled={isAiLoading}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-brand-500/15 to-indigo-500/15 text-brand-700 dark:text-brand-300 border border-brand-500/30 rounded-xl text-xs font-semibold hover:bg-brand-500/25 transition-all cursor-pointer shadow-2xs"
-            >
-              <Sparkles className={`w-3.5 h-3.5 ${isAiLoading ? 'animate-spin' : ''}`} />
-              <span>Write from Subject</span>
-            </button>
 
             <button
               onClick={handleImprove}
@@ -207,24 +159,13 @@ export const Compose = () => {
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="font-semibold text-slate-700 dark:text-slate-300">Subject</label>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleGenerateSubject}
-                  className="text-[11px] text-ai-600 dark:text-ai-400 hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <Sparkles className="w-3 h-3" /> AI Subject
-                </button>
-                <span className="text-slate-300 dark:text-slate-700">|</span>
-                <button
-                  type="button"
-                  onClick={handleDraftEmailFromSubject}
-                  disabled={isAiLoading}
-                  className="text-[11px] text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 font-semibold cursor-pointer"
-                >
-                  <Wand2 className="w-3 h-3" /> Auto-Write Email
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleGenerateSubject}
+                className="text-[11px] text-ai-600 dark:text-ai-400 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Sparkles className="w-3 h-3" /> AI Subject
+              </button>
             </div>
             <input
               type="text"
