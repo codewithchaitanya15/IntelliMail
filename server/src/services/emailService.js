@@ -144,9 +144,16 @@ export const EmailService = {
     if (res.permanent) {
       try {
         await Promise.all([
-          Email.deleteOne({ userId, id: emailId }),
-          AISummary.deleteMany({ userId, emailId }),
-          AIReply.deleteMany({ userId, emailId }),
+          Email.deleteMany({
+            $or: [
+              { userId, id: emailId },
+              { userId, _id: emailId },
+              { id: emailId },
+              { _id: emailId },
+            ],
+          }),
+          AISummary.deleteMany({ emailId }),
+          AIReply.deleteMany({ emailId }),
         ]);
       } catch (err) {
         console.warn('[EmailService] Permanent delete DB cleanup error:', err.message);

@@ -237,11 +237,18 @@ export const Email = {
 
   async deleteOne(query) {
     if (mongoose.connection.readyState === 1) {
-      return MongooseEmail.deleteOne(query);
+      const emailId = query.id || query._id;
+      return MongooseEmail.deleteOne({
+        $or: [
+          query,
+          ...(emailId ? [{ id: emailId }, { _id: emailId }] : []),
+        ],
+      });
     }
     const userPrefix = query.userId?.toString();
+    const emailId = query.id || query._id;
     for (const [key, doc] of inMemoryEmails.entries()) {
-      if (userPrefix && key === `${userPrefix}_${query.id}`) {
+      if ((!userPrefix || key.startsWith(userPrefix)) && (doc.id === emailId || doc._id === emailId || key.endsWith(`_${emailId}`))) {
         inMemoryEmails.delete(key);
         return { deletedCount: 1 };
       }
@@ -257,7 +264,7 @@ export const Email = {
     let count = 0;
     for (const [key, doc] of inMemoryEmails.entries()) {
       if (userPrefix && key.startsWith(userPrefix)) {
-        if (query.id && query.id.$in && query.id.$in.includes(doc.id)) {
+        if (query.id && query.id.$in && (query.id.$in.includes(doc.id) || query.id.$in.includes(doc._id))) {
           inMemoryEmails.delete(key);
           count++;
         }

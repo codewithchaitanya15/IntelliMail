@@ -277,18 +277,21 @@ export const useEmailStore = create((set, get) => ({
     const isTrash = get().activeFolder === 'trash' || forcePermanent;
     // Optimistic UI update
     set((state) => {
-      const target = state.emails.find((e) => e.id === id);
-      const isUnread = target && !target.isRead;
-      const isStarred = target && target.isStarred;
-      const updatedEmails = state.emails.filter((e) => e.id !== id);
+      const target = state.emails.find((e) => e.id === id || e._id === id);
+      const isUnread = target && !target.isRead && !target.isTrash;
+      const isStarred = target && target.isStarred && !target.isTrash;
+      const updatedEmails = state.emails.filter((e) => e.id !== id && e._id !== id);
       return {
         emails: updatedEmails,
-        currentEmail: state.currentEmail?.id === id ? null : state.currentEmail,
+        currentEmail: state.currentEmail?.id === id || state.currentEmail?._id === id ? null : state.currentEmail,
         selectedEmailIds: state.selectedEmailIds.filter((item) => item !== id),
         stats: {
           ...state.stats,
-          unreadCount: isUnread ? Math.max(0, state.stats.unreadCount - 1) : state.stats.unreadCount,
-          starredCount: isStarred ? Math.max(0, state.stats.starredCount - 1) : state.stats.starredCount,
+          unreadCount: isUnread ? Math.max(0, (state.stats?.unreadCount || 0) - 1) : state.stats?.unreadCount || 0,
+          starredCount: isStarred ? Math.max(0, (state.stats?.starredCount || 0) - 1) : state.stats?.starredCount || 0,
+          trashCount: isTrash
+            ? Math.max(0, (state.stats?.trashCount || 0) - 1)
+            : (state.stats?.trashCount || 0) + 1,
         },
       };
     });
@@ -297,20 +300,20 @@ export const useEmailStore = create((set, get) => ({
       const res = await api.delete(`/emails/${id}${isTrash ? '?permanent=true' : ''}`);
       const permanent = res.data?.data?.permanent ?? isTrash;
       toast.success(permanent ? 'Email permanently deleted' : 'Email moved to trash');
-      get().fetchEmails();
+      await get().fetchEmails();
     } catch (err) {
       toast.error('Failed to delete email');
-      get().fetchEmails();
+      await get().fetchEmails();
     }
   },
 
   restoreEmail: async (id) => {
     // Optimistic UI update
     set((state) => {
-      const updatedEmails = state.emails.filter((e) => e.id !== id);
+      const updatedEmails = state.emails.filter((e) => e.id !== id && e._id !== id);
       return {
         emails: updatedEmails,
-        currentEmail: state.currentEmail?.id === id ? null : state.currentEmail,
+        currentEmail: state.currentEmail?.id === id || state.currentEmail?._id === id ? null : state.currentEmail,
         selectedEmailIds: state.selectedEmailIds.filter((item) => item !== id),
       };
     });
@@ -318,10 +321,10 @@ export const useEmailStore = create((set, get) => ({
     try {
       await api.patch(`/emails/${id}/restore`);
       toast.success('Email restored to inbox');
-      get().fetchEmails();
+      await get().fetchEmails();
     } catch (err) {
       toast.error('Failed to restore email');
-      get().fetchEmails();
+      await get().fetchEmails();
     }
   },
 
@@ -330,7 +333,7 @@ export const useEmailStore = create((set, get) => ({
       const res = await api.post('/emails/send', emailData);
       toast.success('Email sent successfully!');
       get().fetchEmails();
-      return res.data;
+      return res.data?.data || res.data;
     } catch (err) {
       const msg = err.response?.data?.message || 'Failed to send email';
       toast.error(msg);
@@ -345,7 +348,7 @@ export const useEmailStore = create((set, get) => ({
       if (get().currentEmail) {
         get().fetchEmailDetail(get().currentEmail.id);
       }
-      return res.data;
+      return res.data?.data || res.data;
     } catch (err) {
       const msg = err.response?.data?.message || 'Failed to send reply';
       toast.error(msg);
@@ -353,38 +356,78 @@ export const useEmailStore = create((set, get) => ({
     }
   },
 
+  starEmail: async (id) => {
+    // Optimistic UI update
+    set((state) => ({
+      emails: state.emails.map((e) => (e.id === id ? { ...e, isStarred: true } : e)),
+      currentEmail: state.currentEmail?.id === id ? { ...state.currentEmail, isStarred: true } : state.currentEmail,
+      stats: {
+        ...state.stats,
+        starredCount: (state.stats?.starredCount || 0) + 1,
+      },
+    }));
+
+    try {
+      await api.patch(`/emails/${id}/star`);
+    } catch (err) {
+      toast.error('Failed to star email');
+      get().fetchEmails();
+    }
+  },
+
+  unstarEmail: async (id) => {
+    // Optimistic UI update
+    set((state) => ({
+      emails: state.emails.map((e) => (e.id === id ? { ...e, isStarred: false } : e)),
+      currentEmail: state.currentEmail?.id === id ? { ...state.currentEmail, isStarred: false } : state.currentEmail,
+      stats: {
+        ...state.stats,
+        starredCount: Math.max(0, (state.stats?.starredCount || 0) - 1),
+      },
+    }));
+
+    try {
+      await api.patch(`/emails/${id}/unstar`);
+    } catch (err) {
+      toast.error('Failed to unstar email');
+      get().fetchEmails();
+    }
+  },
+
   // Bulk Actions
   bulkMarkRead: async () => {
     const ids = [...get().selectedEmailIds];
     if (ids.length === 0) return;
-    await Promise.all(ids.map((id) => api.patch(`/emails/${id}/read`)));
-    set((state) => {
-      const updatedEmails = state.emails.map((e) => (ids.includes(e.id) ? { ...e, isRead: true } : e));
-      return {
-        emails: updatedEmails,
-        selectedEmailIds: [],
-        stats: {
-          ...state.stats,
-          unreadCount: Math.max(0, state.stats.unreadCount - ids.length),
-        },
-      };
-    });
-    toast.success(`Marked ${ids.length} emails as read`);
+    set((state) => ({
+      emails: state.emails.map((e) => (ids.includes(e.id) ? { ...e, isRead: true } : e)),
+      selectedEmailIds: [],
+    }));
+    try {
+      await Promise.all(ids.map((id) => api.patch(`/emails/${id}/read`)));
+      toast.success(`Marked ${ids.length} emails as read`);
+      get().fetchEmails();
+    } catch (err) {
+      toast.error('Failed to mark emails as read');
+    }
   },
 
   bulkArchive: async () => {
     const ids = [...get().selectedEmailIds];
     if (ids.length === 0) return;
-    await Promise.all(ids.map((id) => api.patch(`/emails/${id}/archive`)));
     set((state) => {
-      const updatedEmails = state.emails.filter((e) => !ids.includes(e.id));
+      const updatedEmails = state.emails.filter((e) => !ids.includes(e.id) && !ids.includes(e._id));
       return {
         emails: updatedEmails,
         selectedEmailIds: [],
       };
     });
-    toast.success(`Archived ${ids.length} emails`);
-    get().fetchEmails();
+    try {
+      await Promise.all(ids.map((id) => api.patch(`/emails/${id}/archive`)));
+      toast.success(`Archived ${ids.length} emails`);
+      get().fetchEmails();
+    } catch (err) {
+      toast.error('Failed to archive emails');
+    }
   },
 
   bulkDelete: async (forcePermanent = false) => {
@@ -393,7 +436,7 @@ export const useEmailStore = create((set, get) => ({
     const isTrash = get().activeFolder === 'trash' || forcePermanent;
     // Optimistic removal
     set((state) => {
-      const updatedEmails = state.emails.filter((e) => !ids.includes(e.id));
+      const updatedEmails = state.emails.filter((e) => !ids.includes(e.id) && !ids.includes(e._id));
       return {
         emails: updatedEmails,
         selectedEmailIds: [],
@@ -402,10 +445,10 @@ export const useEmailStore = create((set, get) => ({
     try {
       await Promise.all(ids.map((id) => api.delete(`/emails/${id}${isTrash ? '?permanent=true' : ''}`)));
       toast.success(isTrash ? `Permanently deleted ${ids.length} emails` : `Moved ${ids.length} emails to trash`);
-      get().fetchEmails();
+      await get().fetchEmails();
     } catch (err) {
       toast.error('Failed to delete selected emails');
-      get().fetchEmails();
+      await get().fetchEmails();
     }
   },
 

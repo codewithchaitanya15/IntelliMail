@@ -734,10 +734,12 @@ export class GmailIntegration extends BaseEmailIntegration {
         // Permanently remove from database and demo store
         if (this.account.userId) {
           try {
-            await Email.deleteOne({ userId: this.account.userId, id });
+            await Email.deleteMany({
+              $or: [{ id }, { _id: id }],
+            });
           } catch (e) {}
         }
-        const remaining = emails.filter((e) => e.id !== id);
+        const remaining = emails.filter((e) => e.id !== id && e._id?.toString() !== id);
         this.saveDemoEmails(remaining);
         return { success: true, id, permanent: true };
       }
@@ -772,7 +774,9 @@ export class GmailIntegration extends BaseEmailIntegration {
         });
         if (this.account.userId) {
           try {
-            await Email.deleteOne({ userId: this.account.userId, id });
+            await Email.deleteMany({
+              $or: [{ id }, { _id: id }],
+            });
           } catch (e) {}
         }
         return { success: true, id, permanent: true };
@@ -801,7 +805,9 @@ export class GmailIntegration extends BaseEmailIntegration {
         });
         if (this.account.userId) {
           try {
-            await Email.deleteOne({ userId: this.account.userId, id });
+            await Email.deleteMany({
+              $or: [{ id }, { _id: id }],
+            });
           } catch (e) {}
         }
         return { success: true, id, permanent: true };
