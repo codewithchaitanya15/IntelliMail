@@ -185,6 +185,7 @@ export const EmailService = {
   },
 
   async sendEmail(userId, { to, cc, bcc, subject, body, inReplyTo, references, threadId }) {
+    const user = await User.findById(userId);
     const integration = await GmailService.getIntegrationForUser(userId);
     const res = await integration.sendEmail({
       to,
@@ -195,6 +196,7 @@ export const EmailService = {
       inReplyTo,
       references,
       threadId,
+      userSmtp: user?.preferences?.smtp,
     });
 
     await ActivityService.logActivity({

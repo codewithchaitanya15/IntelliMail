@@ -51,6 +51,14 @@ const userSchema = new mongoose.Schema(
         enum: ['dark', 'light', 'system'],
         default: 'dark',
       },
+      smtp: {
+        host: { type: String, default: 'smtp.gmail.com' },
+        port: { type: Number, default: 587 },
+        user: { type: String, default: '' },
+        pass: { type: String, default: '' },
+        from: { type: String, default: '' },
+        isEnabled: { type: Boolean, default: false },
+      },
     },
     lastLogin: {
       type: Date,

@@ -889,7 +889,7 @@ export class GmailIntegration extends BaseEmailIntegration {
     }
   }
 
-  async sendEmail({ to, cc, bcc, subject, body, inReplyTo, references, threadId }) {
+  async sendEmail({ to, cc, bcc, subject, body, inReplyTo, references, threadId, userSmtp }) {
     // 1. Attempt real-world SMTP dispatch if SMTP or email credentials are configured
     const realMailResult = await MailTransportService.sendMail({
       from: this.account.email,
@@ -901,6 +901,7 @@ export class GmailIntegration extends BaseEmailIntegration {
       text: body,
       inReplyTo,
       references,
+      userSmtp,
     });
 
     // 2. Deliver to in-app recipient account if the recipient exists in IntelliMail

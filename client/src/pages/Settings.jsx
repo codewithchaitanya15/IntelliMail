@@ -25,6 +25,10 @@ export const Settings = () => {
   const [notifications, setNotifications] = useState(
     user?.preferences?.notifications ?? true
   );
+  const [smtpUser, setSmtpUser] = useState(user?.preferences?.smtp?.user || '');
+  const [smtpPass, setSmtpPass] = useState(user?.preferences?.smtp?.pass || '');
+  const [smtpHost, setSmtpHost] = useState(user?.preferences?.smtp?.host || 'smtp.gmail.com');
+  const [smtpPort, setSmtpPort] = useState(user?.preferences?.smtp?.port || 587);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async (e) => {
@@ -36,8 +40,15 @@ export const Settings = () => {
         aiModel,
         autoClassify,
         notifications,
+        smtp: {
+          user: smtpUser,
+          pass: smtpPass,
+          host: smtpHost,
+          port: Number(smtpPort) || 587,
+          isEnabled: !!(smtpUser && smtpPass),
+        },
       });
-      toast.success('Preferences saved successfully!');
+      toast.success('Preferences & SMTP credentials saved!');
     } catch (err) {
       toast.error('Failed to update preferences');
     } finally {
@@ -178,6 +189,82 @@ export const Settings = () => {
                   className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 cursor-pointer"
                 />
               </label>
+            </div>
+          </div>
+
+          {/* Real-World Email Dispatch (SMTP / Gmail App Password) Card */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-emerald-500" />
+                <h2 className="font-bold text-sm text-slate-900 dark:text-slate-100 font-display">
+                  Real Email Dispatch (Gmail / SMTP Delivery)
+                </h2>
+              </div>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                Live External Mailbox Delivery
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Configure your Gmail App Password or custom SMTP server so your sent emails are delivered directly to the recipient's real-world inbox over the internet.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+                  Sender Email (e.g. your Gmail)
+                </label>
+                <input
+                  type="email"
+                  value={smtpUser}
+                  onChange={(e) => setSmtpUser(e.target.value)}
+                  placeholder="your.email@gmail.com"
+                  className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-hidden focus:border-brand-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+                  Gmail App Password / SMTP Password
+                </label>
+                <input
+                  type="password"
+                  value={smtpPass}
+                  onChange={(e) => setSmtpPass(e.target.value)}
+                  placeholder="16-character app password"
+                  className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-hidden focus:border-brand-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Google Account → Security → 2-Step Verification → App passwords.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+                  SMTP Host
+                </label>
+                <input
+                  type="text"
+                  value={smtpHost}
+                  onChange={(e) => setSmtpHost(e.target.value)}
+                  placeholder="smtp.gmail.com"
+                  className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-hidden focus:border-brand-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 dark:text-slate-300 font-semibold mb-1">
+                  SMTP Port
+                </label>
+                <input
+                  type="number"
+                  value={smtpPort}
+                  onChange={(e) => setSmtpPort(e.target.value)}
+                  placeholder="587"
+                  className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-hidden focus:border-brand-500"
+                />
+              </div>
             </div>
           </div>
 
