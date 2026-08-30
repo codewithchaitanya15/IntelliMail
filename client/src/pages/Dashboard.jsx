@@ -21,10 +21,11 @@ import { PriorityBadge, CategoryBadge } from '../components/PriorityBadge/Priori
 
 export const Dashboard = () => {
   const { user } = useAuthStore();
-  const { emails, stats, fetchEmails, isLoading } = useEmailStore();
+  const { emails, stats, fetchEmails, fetchStats, isLoading } = useEmailStore();
 
   useEffect(() => {
     fetchEmails('inbox');
+    fetchStats();
   }, []);
 
   const highPriorityEmails = emails.filter((e) => e.priority === 'HIGH');
@@ -35,6 +36,10 @@ export const Dashboard = () => {
     acc[cat] = emails.filter((e) => e.category === cat).length;
     return acc;
   }, {});
+
+  const unreadCount = stats?.unreadCount ?? emails.filter((e) => !e.isRead && !e.isTrash).length;
+  const starredCount = stats?.starredCount ?? emails.filter((e) => e.isStarred && !e.isTrash).length;
+  const highPriorityCount = stats?.highPriorityCount ?? emails.filter((e) => e.priority === 'HIGH' && !e.isTrash).length;
 
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50 dark:bg-slate-950/50">
@@ -49,8 +54,8 @@ export const Dashboard = () => {
             Good day, {user?.name || 'there'}! 👋
           </h1>
           <p className="text-xs sm:text-sm text-brand-100 leading-relaxed">
-            You have <span className="font-bold text-white">{stats.unreadCount} unread emails</span> and{' '}
-            <span className="font-bold text-white">{stats.highPriorityCount} high-priority tasks</span> requiring your attention today.
+            You have <span className="font-bold text-white">{unreadCount} unread emails</span> and{' '}
+            <span className="font-bold text-white">{highPriorityCount} high-priority tasks</span> requiring your attention today.
           </p>
         </div>
 
@@ -64,7 +69,7 @@ export const Dashboard = () => {
           <div>
             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Unread Messages</span>
             <h3 className="text-2xl font-bold font-display text-slate-900 dark:text-slate-100 mt-1">
-              {stats.unreadCount}
+              {unreadCount}
             </h3>
             <Link to="/inbox" className="text-[11px] text-brand-600 dark:text-brand-400 hover:underline mt-1 inline-block">
               View unread inbox →
@@ -79,7 +84,7 @@ export const Dashboard = () => {
           <div>
             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">High Priority</span>
             <h3 className="text-2xl font-bold font-display text-rose-600 dark:text-rose-400 mt-1">
-              {stats.highPriorityCount}
+              {highPriorityCount}
             </h3>
             <span className="text-[11px] text-slate-400 mt-1 inline-block">Urgent deadlines detected</span>
           </div>
@@ -92,7 +97,7 @@ export const Dashboard = () => {
           <div>
             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Starred Emails</span>
             <h3 className="text-2xl font-bold font-display text-amber-500 mt-1">
-              {stats.starredCount}
+              {starredCount}
             </h3>
             <Link to="/starred" className="text-[11px] text-amber-600 dark:text-amber-400 hover:underline mt-1 inline-block">
               View starred items →

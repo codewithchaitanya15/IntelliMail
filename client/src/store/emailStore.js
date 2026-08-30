@@ -54,8 +54,22 @@ export const useEmailStore = create((set, get) => ({
       const res = await api.get('/emails/stats');
       if (res.data?.data) {
         set({ stats: res.data.data });
+        return res.data.data;
       }
-    } catch (e) {}
+    } catch (e) {
+      const emails = get().emails;
+      if (emails && emails.length > 0) {
+        set({
+          stats: {
+            unreadCount: emails.filter((e) => !e.isRead && !e.isTrash).length,
+            starredCount: emails.filter((e) => e.isStarred && !e.isTrash).length,
+            highPriorityCount: emails.filter((e) => e.priority === 'HIGH' && !e.isTrash).length,
+            inboxCount: emails.length,
+            totalCount: emails.length,
+          },
+        });
+      }
+    }
   },
 
   fetchEmails: async (folder = null, query = '') => {
@@ -73,11 +87,34 @@ export const useEmailStore = create((set, get) => ({
       const messages = res.data.data?.messages || [];
       const backendStats = res.data.data?.stats;
 
-      set((state) => ({
+      const localUnread = messages.filter((e) => !e.isRead && !e.isTrash).length;
+      const localStarred = messages.filter((e) => e.isStarred && !e.isTrash).length;
+      const localHighPriority = messages.filter((e) => e.priority === 'HIGH' && !e.isTrash).length;
+
+      const currentStats = get().stats;
+      const computedStats = {
+        unreadCount: typeof backendStats?.unreadCount === 'number'
+          ? backendStats.unreadCount
+          : (targetFolder === 'inbox' ? localUnread : (currentStats?.unreadCount || localUnread)),
+        starredCount: typeof backendStats?.starredCount === 'number'
+          ? backendStats.starredCount
+          : (targetFolder === 'starred' ? messages.length : (currentStats?.starredCount || localStarred)),
+        highPriorityCount: typeof backendStats?.highPriorityCount === 'number'
+          ? backendStats.highPriorityCount
+          : (targetFolder === 'inbox' ? localHighPriority : (currentStats?.highPriorityCount || localHighPriority)),
+        inboxCount: typeof backendStats?.inboxCount === 'number'
+          ? backendStats.inboxCount
+          : (targetFolder === 'inbox' ? messages.length : (currentStats?.inboxCount || messages.length)),
+        totalCount: typeof backendStats?.totalCount === 'number'
+          ? backendStats.totalCount
+          : messages.length,
+      };
+
+      set({
         emails: messages,
         isLoading: false,
-        stats: backendStats || state.stats,
-      }));
+        stats: computedStats,
+      });
 
       return messages;
     } catch (err) {

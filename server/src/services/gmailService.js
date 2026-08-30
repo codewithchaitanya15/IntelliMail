@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import { GmailAccount } from '../models/GmailAccount.js';
+import { User } from '../models/User.js';
 import {
   generateAuthUrl,
   getOAuth2Client,
@@ -157,7 +158,19 @@ export const GmailService = {
   },
 
   async getIntegrationForUser(userId) {
-    const account = await GmailAccount.findOne({ userId, isConnected: true });
+    let account = await GmailAccount.findOne({ userId, isConnected: true });
+    if (!account) {
+      // Auto-connect demo sandbox mode for the user so emails and stats work immediately
+      try {
+        const user = await User.findById(userId);
+        if (user) {
+          account = await this.connectDemoMode(userId, user.email);
+        }
+      } catch (e) {
+        console.warn('[GmailService] Auto-connect demo error:', e.message);
+      }
+    }
+
     if (!account) {
       const err = new Error('INTEGRATION_NOT_CONNECTED');
       err.code = 'INTEGRATION_NOT_CONNECTED';
