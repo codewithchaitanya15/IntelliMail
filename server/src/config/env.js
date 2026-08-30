@@ -32,6 +32,16 @@ export const config = {
   openaiApiKey: process.env.OPENAI_API_KEY || '',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   
+  // SMTP / Real Email Dispatch
+  smtp: {
+    host: process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587', 10),
+    secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_PORT === '465',
+    user: process.env.SMTP_USER || process.env.EMAIL_USER || process.env.GMAIL_USER || '',
+    pass: process.env.SMTP_PASS || process.env.EMAIL_PASS || process.env.GMAIL_PASS || process.env.GMAIL_APP_PASSWORD || '',
+    from: process.env.SMTP_FROM || process.env.EMAIL_FROM || '',
+  },
+
   // Redis (BullMQ)
   redis: {
     url: process.env.REDIS_URL || '',

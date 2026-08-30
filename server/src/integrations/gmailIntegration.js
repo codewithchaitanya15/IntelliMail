@@ -3,6 +3,9 @@ import { google } from 'googleapis';
 import { config } from '../config/env.js';
 import { BaseEmailIntegration } from './baseIntegration.js';
 import { Email } from '../models/Email.js';
+import { User } from '../models/User.js';
+import { MailTransportService } from '../services/mailTransportService.js';
+import { emitToUser } from '../config/socket.js';
 
 // --- AES-256-GCM Encryption / Decryption Utilities ---
 const ALGORITHM = 'aes-256-gcm';
@@ -887,9 +890,57 @@ export class GmailIntegration extends BaseEmailIntegration {
   }
 
   async sendEmail({ to, cc, bcc, subject, body, inReplyTo, references, threadId }) {
+    // 1. Attempt real-world SMTP dispatch if SMTP or email credentials are configured
+    const realMailResult = await MailTransportService.sendMail({
+      from: this.account.email,
+      to,
+      cc,
+      bcc,
+      subject,
+      html: body,
+      text: body,
+      inReplyTo,
+      references,
+    });
+
+    // 2. Deliver to in-app recipient account if the recipient exists in IntelliMail
+    const cleanTo = (to || '').toLowerCase().trim();
+    try {
+      const recipientUser = await User.findOne({ email: cleanTo });
+      if (recipientUser) {
+        const incomingMsg = {
+          id: `msg_in_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+          threadId: threadId || `th_${Date.now()}`,
+          sender: `${this.account.profile?.name || this.account.email} <${this.account.email}>`,
+          from: this.account.email,
+          to,
+          cc: cc || '',
+          bcc: bcc || '',
+          subject: subject || '(No Subject)',
+          snippet: (body || '').slice(0, 100) + '...',
+          body: body || '',
+          date: new Date().toISOString(),
+          isRead: false,
+          isStarred: false,
+          isArchived: false,
+          isTrash: false,
+          labels: ['INBOX', 'UNREAD'],
+          priority: 'MEDIUM',
+          category: 'Work',
+          userId: recipientUser._id,
+        };
+
+        await Email.create(incomingMsg);
+        emitToUser(recipientUser._id.toString(), 'EMAIL_RECEIVED', incomingMsg);
+        emitToUser(recipientUser._id.toString(), 'NEW_EMAIL', incomingMsg);
+      }
+    } catch (recipientErr) {
+      console.warn('[GmailIntegration] In-app recipient delivery notice:', recipientErr.message);
+    }
+
     if (this.isDemo) {
       const newMsg = {
-        id: `msg_sent_${Date.now()}`,
+        id: realMailResult.messageId || `msg_sent_${Date.now()}`,
         threadId: threadId || `th_${Date.now()}`,
         sender: `Me <${this.account.email}>`,
         from: this.account.email,
@@ -897,7 +948,7 @@ export class GmailIntegration extends BaseEmailIntegration {
         cc: cc || '',
         bcc: bcc || '',
         subject,
-        snippet: body.slice(0, 100) + '...',
+        snippet: (body || '').slice(0, 100) + '...',
         body,
         date: new Date().toISOString(),
         isRead: true,
@@ -907,11 +958,12 @@ export class GmailIntegration extends BaseEmailIntegration {
         labels: ['SENT'],
         priority: 'MEDIUM',
         category: 'Work',
+        userId: this.account.userId,
       };
 
       if (this.account.userId) {
         try {
-          await Email.create({ ...newMsg, userId: this.account.userId });
+          await Email.create(newMsg);
         } catch (e) {}
       }
 
@@ -924,43 +976,56 @@ export class GmailIntegration extends BaseEmailIntegration {
         threadId: newMsg.threadId,
         labelIds: ['SENT'],
         isDemo: true,
+        deliveredRealWorld: realMailResult.deliveredRealWorld,
       };
     }
 
-    // Build standard RFC 2822 MIME message
-    const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString('base64')}?=`;
-    const messageParts = [
-      `From: ${this.account.email}`,
-      `To: ${to}`,
-      ...(cc ? [`Cc: ${cc}`] : []),
-      ...(bcc ? [`Bcc: ${bcc}`] : []),
-      `Subject: ${utf8Subject}`,
-      `Date: ${new Date().toUTCString()}`,
-      `MIME-Version: 1.0`,
-      `Content-Type: text/html; charset=utf-8`,
-      `Content-Transfer-Encoding: 7bit`,
-      ...(inReplyTo ? [`In-Reply-To: ${inReplyTo}`] : []),
-      ...(references ? [`References: ${references}`] : []),
-      '',
-      body,
-    ];
+    // Google OAuth direct API delivery
+    try {
+      const utf8Subject = `=?utf-8?B?${Buffer.from(subject).toString('base64')}?=`;
+      const messageParts = [
+        `From: ${this.account.email}`,
+        `To: ${to}`,
+        ...(cc ? [`Cc: ${cc}`] : []),
+        ...(bcc ? [`Bcc: ${bcc}`] : []),
+        `Subject: ${utf8Subject}`,
+        `Date: ${new Date().toUTCString()}`,
+        `MIME-Version: 1.0`,
+        `Content-Type: text/html; charset=utf-8`,
+        `Content-Transfer-Encoding: 7bit`,
+        ...(inReplyTo ? [`In-Reply-To: ${inReplyTo}`] : []),
+        ...(references ? [`References: ${references}`] : []),
+        '',
+        body,
+      ];
 
-    const message = messageParts.join('\r\n');
-    const encodedMessage = Buffer.from(message)
-      .toString('base64')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
+      const message = messageParts.join('\r\n');
+      const encodedMessage = Buffer.from(message)
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
 
-    const res = await this.gmail.users.messages.send({
-      userId: 'me',
-      requestBody: {
-        raw: encodedMessage,
-        threadId: threadId || undefined,
-      },
-    });
+      const res = await this.gmail.users.messages.send({
+        userId: 'me',
+        requestBody: {
+          raw: encodedMessage,
+          threadId: threadId || undefined,
+        },
+      });
 
-    return res.data;
+      return res.data;
+    } catch (gmailErr) {
+      if (realMailResult.deliveredRealWorld) {
+        return {
+          id: realMailResult.messageId,
+          threadId: threadId || `th_${Date.now()}`,
+          labelIds: ['SENT'],
+          deliveredRealWorld: true,
+        };
+      }
+      throw gmailErr;
+    }
   }
 
   async saveDraft({ to, cc, bcc, subject, body, inReplyTo, references, threadId }) {
