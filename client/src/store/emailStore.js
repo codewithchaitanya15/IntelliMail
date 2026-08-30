@@ -194,6 +194,7 @@ export const useEmailStore = create((set, get) => ({
       const res = await api.delete(`/emails/${id}${isTrash ? '?permanent=true' : ''}`);
       const permanent = res.data?.data?.permanent ?? isTrash;
       toast.success(permanent ? 'Email permanently deleted' : 'Email moved to trash');
+      get().fetchEmails();
     } catch (err) {
       toast.error('Failed to delete email');
       get().fetchEmails();
@@ -211,6 +212,7 @@ export const useEmailStore = create((set, get) => ({
     try {
       await api.patch(`/emails/${id}/restore`);
       toast.success('Email restored to inbox');
+      get().fetchEmails();
     } catch (err) {
       toast.error('Failed to restore email');
       get().fetchEmails();
@@ -280,6 +282,7 @@ export const useEmailStore = create((set, get) => ({
     try {
       await Promise.all(ids.map((id) => api.delete(`/emails/${id}${isTrash ? '?permanent=true' : ''}`)));
       toast.success(isTrash ? `Permanently deleted ${ids.length} emails` : `Moved ${ids.length} emails to trash`);
+      get().fetchEmails();
     } catch (err) {
       toast.error('Failed to delete selected emails');
       get().fetchEmails();
@@ -297,6 +300,7 @@ export const useEmailStore = create((set, get) => ({
     try {
       await Promise.all(ids.map((id) => api.patch(`/emails/${id}/restore`)));
       toast.success(`Restored ${ids.length} emails to inbox`);
+      get().fetchEmails();
     } catch (err) {
       toast.error('Failed to restore selected emails');
       get().fetchEmails();

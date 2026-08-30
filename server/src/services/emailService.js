@@ -1,6 +1,7 @@
 import { GmailService } from './gmailService.js';
 import { ActivityService } from './activityService.js';
 import { NotificationService } from './notificationService.js';
+import { Email } from '../models/Email.js';
 import { AISummary } from '../models/AISummary.js';
 import { AIReply } from '../models/AIReply.js';
 import { emitToUser } from '../config/socket.js';
@@ -121,6 +122,18 @@ export const EmailService = {
   async deleteEmail(userId, emailId, forcePermanent = false) {
     const integration = await GmailService.getIntegrationForUser(userId);
     const res = await integration.deleteEmail(emailId, forcePermanent);
+
+    if (res.permanent) {
+      try {
+        await Promise.all([
+          Email.deleteOne({ userId, id: emailId }),
+          AISummary.deleteMany({ userId, emailId }),
+          AIReply.deleteMany({ userId, emailId }),
+        ]);
+      } catch (err) {
+        console.warn('[EmailService] Permanent delete DB cleanup error:', err.message);
+      }
+    }
 
     await ActivityService.logActivity({
       userId,

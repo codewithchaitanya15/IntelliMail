@@ -72,4 +72,25 @@ export const AIReply = {
       },
     };
   },
+
+  async deleteMany(query) {
+    if (mongoose.connection.readyState === 1) {
+      return MongooseAIReply.deleteMany(query);
+    }
+    const initialLen = inMemoryReplies.length;
+    for (let i = inMemoryReplies.length - 1; i >= 0; i--) {
+      const r = inMemoryReplies[i];
+      if (
+        (!query.userId || r.userId?.toString() === query.userId?.toString()) &&
+        (!query.emailId || r.emailId === query.emailId)
+      ) {
+        inMemoryReplies.splice(i, 1);
+      }
+    }
+    return { deletedCount: initialLen - inMemoryReplies.length };
+  },
+
+  async deleteOne(query) {
+    return this.deleteMany(query);
+  },
 };

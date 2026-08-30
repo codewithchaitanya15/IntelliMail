@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { google } from 'googleapis';
 import { config } from '../config/env.js';
 import { BaseEmailIntegration } from './baseIntegration.js';
+import { Email } from '../models/Email.js';
 
 // --- AES-256-GCM Encryption / Decryption Utilities ---
 const ALGORITHM = 'aes-256-gcm';
@@ -334,12 +335,38 @@ export class GmailIntegration extends BaseEmailIntegration {
     this.gmail = google.gmail({ version: 'v1', auth: this.oauth2Client });
   }
 
-  getDemoEmails() {
+  async getDemoEmails() {
     const key = this.account.userId?.toString() || 'default';
     if (!mockEmailsStore.has(key)) {
-      mockEmailsStore.set(key, getMockInboxSeed(this.account.email));
+      const seed = getMockInboxSeed(this.account.email);
+      mockEmailsStore.set(key, seed);
+      if (this.account.userId) {
+        try {
+          const count = await Email.countDocuments({ userId: this.account.userId });
+          if (count === 0) {
+            const seedWithUser = seed.map((e) => ({
+              ...e,
+              userId: this.account.userId,
+            }));
+            await Email.insertMany(seedWithUser);
+          }
+        } catch (err) {
+          console.warn('[GmailIntegration] Seed to DB error:', err.message);
+        }
+      }
     }
-    return mockEmailsStore.get(key);
+
+    if (this.account.userId) {
+      try {
+        const dbEmails = await Email.find({ userId: this.account.userId });
+        if (dbEmails && dbEmails.length > 0) {
+          mockEmailsStore.set(key, dbEmails);
+          return dbEmails;
+        }
+      } catch (e) {}
+    }
+
+    return mockEmailsStore.get(key) || [];
   }
 
   saveDemoEmails(emails) {
@@ -349,7 +376,8 @@ export class GmailIntegration extends BaseEmailIntegration {
 
   async listEmails({ folder = 'inbox', query = '', pageToken = null, maxResults = 25 }) {
     if (this.isDemo) {
-      let emails = [...this.getDemoEmails()];
+      let emails = await this.getDemoEmails();
+      emails = [...emails];
 
       // Filter by folder
       if (folder === 'inbox') {
@@ -421,7 +449,7 @@ export class GmailIntegration extends BaseEmailIntegration {
 
   async getEmail(id) {
     if (this.isDemo) {
-      const emails = this.getDemoEmails();
+      const emails = await this.getDemoEmails();
       const email = emails.find((e) => e.id === id);
       if (!email) {
         throw new Error(`Email with ID ${id} not found`);
@@ -446,7 +474,7 @@ export class GmailIntegration extends BaseEmailIntegration {
 
   async getThread(threadId) {
     if (this.isDemo) {
-      const emails = this.getDemoEmails();
+      const emails = await this.getDemoEmails();
       const threadEmails = emails.filter((e) => e.threadId === threadId || e.id === threadId);
       return {
         id: threadId,
@@ -476,7 +504,15 @@ export class GmailIntegration extends BaseEmailIntegration {
 
   async markAsRead(id) {
     if (this.isDemo) {
-      const emails = this.getDemoEmails();
+      if (this.account.userId) {
+        try {
+          await Email.updateOne(
+            { userId: this.account.userId, id },
+            { isRead: true, $pull: { labels: 'UNREAD' } }
+          );
+        } catch (e) {}
+      }
+      const emails = await this.getDemoEmails();
       const target = emails.find((e) => e.id === id);
       if (target) {
         target.isRead = true;
@@ -497,7 +533,15 @@ export class GmailIntegration extends BaseEmailIntegration {
 
   async markAsUnread(id) {
     if (this.isDemo) {
-      const emails = this.getDemoEmails();
+      if (this.account.userId) {
+        try {
+          await Email.updateOne(
+            { userId: this.account.userId, id },
+            { isRead: false, $addToSet: { labels: 'UNREAD' } }
+          );
+        } catch (e) {}
+      }
+      const emails = await this.getDemoEmails();
       const target = emails.find((e) => e.id === id);
       if (target) {
         target.isRead = false;
@@ -520,7 +564,15 @@ export class GmailIntegration extends BaseEmailIntegration {
 
   async starEmail(id) {
     if (this.isDemo) {
-      const emails = this.getDemoEmails();
+      if (this.account.userId) {
+        try {
+          await Email.updateOne(
+            { userId: this.account.userId, id },
+            { isStarred: true, $addToSet: { labels: 'STARRED' } }
+          );
+        } catch (e) {}
+      }
+      const emails = await this.getDemoEmails();
       const target = emails.find((e) => e.id === id);
       if (target) {
         target.isStarred = true;
@@ -543,7 +595,15 @@ export class GmailIntegration extends BaseEmailIntegration {
 
   async unstarEmail(id) {
     if (this.isDemo) {
-      const emails = this.getDemoEmails();
+      if (this.account.userId) {
+        try {
+          await Email.updateOne(
+            { userId: this.account.userId, id },
+            { isStarred: false, $pull: { labels: 'STARRED' } }
+          );
+        } catch (e) {}
+      }
+      const emails = await this.getDemoEmails();
       const target = emails.find((e) => e.id === id);
       if (target) {
         target.isStarred = false;
@@ -564,7 +624,15 @@ export class GmailIntegration extends BaseEmailIntegration {
 
   async archiveEmail(id) {
     if (this.isDemo) {
-      const emails = this.getDemoEmails();
+      if (this.account.userId) {
+        try {
+          await Email.updateOne(
+            { userId: this.account.userId, id },
+            { isArchived: true, $pull: { labels: 'INBOX' } }
+          );
+        } catch (e) {}
+      }
+      const emails = await this.getDemoEmails();
       const target = emails.find((e) => e.id === id);
       if (target) {
         target.isArchived = true;
@@ -585,21 +653,37 @@ export class GmailIntegration extends BaseEmailIntegration {
 
   async deleteEmail(id, forcePermanent = false) {
     if (this.isDemo) {
-      const emails = this.getDemoEmails();
+      const emails = await this.getDemoEmails();
       const target = emails.find((e) => e.id === id);
-      if (target) {
-        if (target.isTrash || forcePermanent) {
-          // Permanently remove from demo store if already in Trash or forcePermanent
-          const remaining = emails.filter((e) => e.id !== id);
-          this.saveDemoEmails(remaining);
-          return { success: true, id, permanent: true };
+      const isAlreadyTrash = target ? target.isTrash : false;
+
+      if (isAlreadyTrash || forcePermanent) {
+        // Permanently remove from database and demo store
+        if (this.account.userId) {
+          try {
+            await Email.deleteOne({ userId: this.account.userId, id });
+          } catch (e) {}
         }
+        const remaining = emails.filter((e) => e.id !== id);
+        this.saveDemoEmails(remaining);
+        return { success: true, id, permanent: true };
+      }
+
+      // Soft delete: move to trash
+      if (this.account.userId) {
+        try {
+          await Email.updateOne(
+            { userId: this.account.userId, id },
+            { isTrash: true, labels: ['TRASH'] }
+          );
+        } catch (e) {}
+      }
+      if (target) {
         target.isTrash = true;
         target.labels = [...(target.labels || []).filter((l) => l !== 'INBOX'), 'TRASH'];
         this.saveDemoEmails(emails);
-        return { success: true, id, permanent: false };
       }
-      return { success: true, id, permanent: true };
+      return { success: true, id, permanent: false };
     }
 
     try {
@@ -608,11 +692,16 @@ export class GmailIntegration extends BaseEmailIntegration {
       const labels = msg.data?.labelIds || [];
       
       if (labels.includes('TRASH') || forcePermanent) {
-        // Permanently delete from Gmail
+        // Permanently delete from Gmail and database
         await this.gmail.users.messages.delete({
           userId: 'me',
           id,
         });
+        if (this.account.userId) {
+          try {
+            await Email.deleteOne({ userId: this.account.userId, id });
+          } catch (e) {}
+        }
         return { success: true, id, permanent: true };
       }
 
@@ -621,6 +710,14 @@ export class GmailIntegration extends BaseEmailIntegration {
         userId: 'me',
         id,
       });
+      if (this.account.userId) {
+        try {
+          await Email.updateOne(
+            { userId: this.account.userId, id },
+            { isTrash: true, labels: ['TRASH'] }
+          );
+        } catch (e) {}
+      }
       return { success: true, id, permanent: false };
     } catch (err) {
       // Fallback: execute permanent delete
@@ -629,6 +726,11 @@ export class GmailIntegration extends BaseEmailIntegration {
           userId: 'me',
           id,
         });
+        if (this.account.userId) {
+          try {
+            await Email.deleteOne({ userId: this.account.userId, id });
+          } catch (e) {}
+        }
         return { success: true, id, permanent: true };
       } catch (e) {
         throw err;
@@ -638,7 +740,15 @@ export class GmailIntegration extends BaseEmailIntegration {
 
   async untrashEmail(id) {
     if (this.isDemo) {
-      const emails = this.getDemoEmails();
+      if (this.account.userId) {
+        try {
+          await Email.updateOne(
+            { userId: this.account.userId, id },
+            { isTrash: false, isArchived: false, labels: ['INBOX'] }
+          );
+        } catch (e) {}
+      }
+      const emails = await this.getDemoEmails();
       const target = emails.find((e) => e.id === id);
       if (target) {
         target.isTrash = false;
@@ -680,6 +790,15 @@ export class GmailIntegration extends BaseEmailIntegration {
         // INBOX label modification is best-effort, untrash was successful
       }
 
+      if (this.account.userId) {
+        try {
+          await Email.updateOne(
+            { userId: this.account.userId, id },
+            { isTrash: false, isArchived: false, labels: ['INBOX'] }
+          );
+        } catch (e) {}
+      }
+
       return { success: true, id, restored: true };
     } catch (err) {
       throw err;
@@ -709,7 +828,13 @@ export class GmailIntegration extends BaseEmailIntegration {
         category: 'Work',
       };
 
-      const emails = this.getDemoEmails();
+      if (this.account.userId) {
+        try {
+          await Email.create({ ...newMsg, userId: this.account.userId });
+        } catch (e) {}
+      }
+
+      const emails = await this.getDemoEmails();
       emails.unshift(newMsg);
       this.saveDemoEmails(emails);
 
@@ -777,7 +902,14 @@ export class GmailIntegration extends BaseEmailIntegration {
         isTrash: false,
         labels: ['DRAFT'],
       };
-      const emails = this.getDemoEmails();
+
+      if (this.account.userId) {
+        try {
+          await Email.create({ ...draftMsg, userId: this.account.userId });
+        } catch (e) {}
+      }
+
+      const emails = await this.getDemoEmails();
       emails.unshift(draftMsg);
       this.saveDemoEmails(emails);
       return { id: draftMsg.id, message: draftMsg, isDemo: true };

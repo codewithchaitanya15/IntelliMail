@@ -89,4 +89,25 @@ export const AISummary = {
       },
     };
   },
+
+  async deleteMany(query) {
+    if (mongoose.connection.readyState === 1) {
+      return MongooseAISummary.deleteMany(query);
+    }
+    const initialLen = inMemorySummaries.length;
+    for (let i = inMemorySummaries.length - 1; i >= 0; i--) {
+      const s = inMemorySummaries[i];
+      if (
+        (!query.userId || s.userId?.toString() === query.userId?.toString()) &&
+        (!query.emailId || s.emailId === query.emailId)
+      ) {
+        inMemorySummaries.splice(i, 1);
+      }
+    }
+    return { deletedCount: initialLen - inMemorySummaries.length };
+  },
+
+  async deleteOne(query) {
+    return this.deleteMany(query);
+  },
 };
