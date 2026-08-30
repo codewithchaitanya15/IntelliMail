@@ -18,6 +18,10 @@ export class BaseEmailIntegration {
     throw new Error('Method getThread() must be implemented');
   }
 
+  async getStats() {
+    throw new Error('Method getStats() must be implemented');
+  }
+
   async searchEmails(query, options = {}) {
     throw new Error('Method searchEmails() must be implemented');
   }

@@ -10,6 +10,7 @@ router.use(requireAuth);
 
 router.get('/', EmailController.listEmails);
 router.get('/search', EmailController.searchEmails);
+router.get('/stats', EmailController.getStats);
 router.get('/:id', EmailController.getEmail);
 router.get('/:id/thread', EmailController.getThread);
 

@@ -2,13 +2,6 @@ import { create } from 'zustand';
 import api from '../services/api.js';
 import toast from 'react-hot-toast';
 
-const computeStats = (emails) => ({
-  unreadCount: emails.filter((e) => !e.isRead && !e.isTrash).length,
-  starredCount: emails.filter((e) => e.isStarred && !e.isTrash).length,
-  highPriorityCount: emails.filter((e) => e.priority === 'HIGH' && !e.isTrash).length,
-  totalCount: emails.length,
-});
-
 export const useEmailStore = create((set, get) => ({
   emails: [],
   activeFolder: 'inbox',
@@ -25,6 +18,7 @@ export const useEmailStore = create((set, get) => ({
     unreadCount: 0,
     starredCount: 0,
     highPriorityCount: 0,
+    inboxCount: 0,
     totalCount: 0,
   },
 
@@ -55,6 +49,15 @@ export const useEmailStore = create((set, get) => ({
     set({ selectedEmailIds: [] });
   },
 
+  fetchStats: async () => {
+    try {
+      const res = await api.get('/emails/stats');
+      if (res.data?.data) {
+        set({ stats: res.data.data });
+      }
+    } catch (e) {}
+  },
+
   fetchEmails: async (folder = null, query = '') => {
     const targetFolder = folder || get().activeFolder;
     set({ isLoading: true, error: null });
@@ -67,14 +70,14 @@ export const useEmailStore = create((set, get) => ({
         },
       });
 
-      const messages = res.data.data.messages || [];
-      const stats = computeStats(messages);
+      const messages = res.data.data?.messages || [];
+      const backendStats = res.data.data?.stats;
 
-      set({
+      set((state) => ({
         emails: messages,
         isLoading: false,
-        stats,
-      });
+        stats: backendStats || state.stats,
+      }));
 
       return messages;
     } catch (err) {
@@ -103,7 +106,9 @@ export const useEmailStore = create((set, get) => ({
           currentEmail: updatedEmail,
           emails: updatedEmails,
           isDetailLoading: false,
-          stats: wasUnread ? computeStats(updatedEmails) : state.stats,
+          stats: wasUnread
+            ? { ...state.stats, unreadCount: Math.max(0, state.stats.unreadCount - 1) }
+            : state.stats,
         };
       });
 
@@ -130,11 +135,15 @@ export const useEmailStore = create((set, get) => ({
     try {
       await api.patch(`/emails/${id}/read`);
       set((state) => {
+        const target = state.emails.find((e) => e.id === id);
+        const wasUnread = target ? !target.isRead : true;
         const updatedEmails = state.emails.map((e) => (e.id === id ? { ...e, isRead: true } : e));
         return {
           emails: updatedEmails,
           currentEmail: state.currentEmail?.id === id ? { ...state.currentEmail, isRead: true } : state.currentEmail,
-          stats: computeStats(updatedEmails),
+          stats: wasUnread
+            ? { ...state.stats, unreadCount: Math.max(0, state.stats.unreadCount - 1) }
+            : state.stats,
         };
       });
     } catch (err) {
@@ -146,11 +155,15 @@ export const useEmailStore = create((set, get) => ({
     try {
       await api.patch(`/emails/${id}/unread`);
       set((state) => {
+        const target = state.emails.find((e) => e.id === id);
+        const wasRead = target ? target.isRead : true;
         const updatedEmails = state.emails.map((e) => (e.id === id ? { ...e, isRead: false } : e));
         return {
           emails: updatedEmails,
           currentEmail: state.currentEmail?.id === id ? { ...state.currentEmail, isRead: false } : state.currentEmail,
-          stats: computeStats(updatedEmails),
+          stats: wasRead
+            ? { ...state.stats, unreadCount: state.stats.unreadCount + 1 }
+            : state.stats,
         };
       });
       toast.success('Marked as unread');
@@ -163,11 +176,15 @@ export const useEmailStore = create((set, get) => ({
     try {
       await api.patch(`/emails/${id}/star`);
       set((state) => {
+        const target = state.emails.find((e) => e.id === id);
+        const wasStarred = target ? target.isStarred : false;
         const updatedEmails = state.emails.map((e) => (e.id === id ? { ...e, isStarred: true } : e));
         return {
           emails: updatedEmails,
           currentEmail: state.currentEmail?.id === id ? { ...state.currentEmail, isStarred: true } : state.currentEmail,
-          stats: computeStats(updatedEmails),
+          stats: !wasStarred
+            ? { ...state.stats, starredCount: state.stats.starredCount + 1 }
+            : state.stats,
         };
       });
     } catch (err) {
@@ -179,11 +196,15 @@ export const useEmailStore = create((set, get) => ({
     try {
       await api.patch(`/emails/${id}/unstar`);
       set((state) => {
+        const target = state.emails.find((e) => e.id === id);
+        const wasStarred = target ? target.isStarred : true;
         const updatedEmails = state.emails.map((e) => (e.id === id ? { ...e, isStarred: false } : e));
         return {
           emails: updatedEmails,
           currentEmail: state.currentEmail?.id === id ? { ...state.currentEmail, isStarred: false } : state.currentEmail,
-          stats: computeStats(updatedEmails),
+          stats: wasStarred
+            ? { ...state.stats, starredCount: Math.max(0, state.stats.starredCount - 1) }
+            : state.stats,
         };
       });
     } catch (err) {
@@ -195,11 +216,18 @@ export const useEmailStore = create((set, get) => ({
     try {
       await api.patch(`/emails/${id}/archive`);
       set((state) => {
+        const target = state.emails.find((e) => e.id === id);
+        const isUnread = target && !target.isRead;
+        const isStarred = target && target.isStarred;
         const updatedEmails = state.emails.filter((e) => e.id !== id);
         return {
           emails: updatedEmails,
           currentEmail: null,
-          stats: computeStats(updatedEmails),
+          stats: {
+            ...state.stats,
+            unreadCount: isUnread ? Math.max(0, state.stats.unreadCount - 1) : state.stats.unreadCount,
+            starredCount: isStarred ? Math.max(0, state.stats.starredCount - 1) : state.stats.starredCount,
+          },
         };
       });
       toast.success('Email archived');
@@ -212,12 +240,19 @@ export const useEmailStore = create((set, get) => ({
     const isTrash = get().activeFolder === 'trash' || forcePermanent;
     // Optimistic UI update
     set((state) => {
+      const target = state.emails.find((e) => e.id === id);
+      const isUnread = target && !target.isRead;
+      const isStarred = target && target.isStarred;
       const updatedEmails = state.emails.filter((e) => e.id !== id);
       return {
         emails: updatedEmails,
         currentEmail: state.currentEmail?.id === id ? null : state.currentEmail,
         selectedEmailIds: state.selectedEmailIds.filter((item) => item !== id),
-        stats: computeStats(updatedEmails),
+        stats: {
+          ...state.stats,
+          unreadCount: isUnread ? Math.max(0, state.stats.unreadCount - 1) : state.stats.unreadCount,
+          starredCount: isStarred ? Math.max(0, state.stats.starredCount - 1) : state.stats.starredCount,
+        },
       };
     });
 
@@ -240,7 +275,6 @@ export const useEmailStore = create((set, get) => ({
         emails: updatedEmails,
         currentEmail: state.currentEmail?.id === id ? null : state.currentEmail,
         selectedEmailIds: state.selectedEmailIds.filter((item) => item !== id),
-        stats: computeStats(updatedEmails),
       };
     });
 
@@ -292,7 +326,10 @@ export const useEmailStore = create((set, get) => ({
       return {
         emails: updatedEmails,
         selectedEmailIds: [],
-        stats: computeStats(updatedEmails),
+        stats: {
+          ...state.stats,
+          unreadCount: Math.max(0, state.stats.unreadCount - ids.length),
+        },
       };
     });
     toast.success(`Marked ${ids.length} emails as read`);
@@ -307,10 +344,10 @@ export const useEmailStore = create((set, get) => ({
       return {
         emails: updatedEmails,
         selectedEmailIds: [],
-        stats: computeStats(updatedEmails),
       };
     });
     toast.success(`Archived ${ids.length} emails`);
+    get().fetchEmails();
   },
 
   bulkDelete: async (forcePermanent = false) => {
@@ -323,7 +360,6 @@ export const useEmailStore = create((set, get) => ({
       return {
         emails: updatedEmails,
         selectedEmailIds: [],
-        stats: computeStats(updatedEmails),
       };
     });
     try {
@@ -345,7 +381,6 @@ export const useEmailStore = create((set, get) => ({
       return {
         emails: updatedEmails,
         selectedEmailIds: [],
-        stats: computeStats(updatedEmails),
       };
     });
     try {

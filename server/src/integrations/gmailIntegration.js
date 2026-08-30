@@ -374,7 +374,73 @@ export class GmailIntegration extends BaseEmailIntegration {
     mockEmailsStore.set(key, emails);
   }
 
+  async getStats() {
+    if (this.isDemo) {
+      const allEmails = await this.getDemoEmails();
+      const inboxEmails = allEmails.filter((e) => !e.isArchived && !e.isTrash);
+      const starredEmails = allEmails.filter((e) => e.isStarred && !e.isTrash);
+      const unreadInbox = inboxEmails.filter((e) => !e.isRead);
+      const highPriority = inboxEmails.filter((e) => e.priority === 'HIGH');
+      const trashEmails = allEmails.filter((e) => e.isTrash);
+      const archiveEmails = allEmails.filter((e) => e.isArchived && !e.isTrash);
+      const sentEmails = allEmails.filter((e) => e.from?.includes(this.account.email) && !e.isTrash);
+
+      return {
+        unreadCount: unreadInbox.length,
+        starredCount: starredEmails.length,
+        highPriorityCount: highPriority.length,
+        inboxCount: inboxEmails.length,
+        trashCount: trashEmails.length,
+        archiveCount: archiveEmails.length,
+        sentCount: sentEmails.length,
+        totalCount: inboxEmails.length,
+      };
+    }
+
+    // Live Gmail API
+    try {
+      let dbEmails = [];
+      if (this.account.userId) {
+        dbEmails = await Email.find({ userId: this.account.userId });
+      }
+
+      if (dbEmails && dbEmails.length > 0) {
+        const inboxEmails = dbEmails.filter((e) => !e.isArchived && !e.isTrash);
+        const starredEmails = dbEmails.filter((e) => e.isStarred && !e.isTrash);
+        const unreadInbox = inboxEmails.filter((e) => !e.isRead);
+        const highPriority = inboxEmails.filter((e) => e.priority === 'HIGH');
+
+        return {
+          unreadCount: unreadInbox.length,
+          starredCount: starredEmails.length,
+          highPriorityCount: highPriority.length,
+          inboxCount: inboxEmails.length,
+          trashCount: dbEmails.filter((e) => e.isTrash).length,
+          archiveCount: dbEmails.filter((e) => e.isArchived && !e.isTrash).length,
+          totalCount: inboxEmails.length,
+        };
+      }
+
+      const [unreadRes, starredRes] = await Promise.all([
+        this.gmail.users.messages.list({ userId: 'me', q: 'in:inbox is:unread', maxResults: 1 }),
+        this.gmail.users.messages.list({ userId: 'me', q: 'is:starred -in:trash', maxResults: 1 }),
+      ]);
+
+      return {
+        unreadCount: unreadRes.data.resultSizeEstimate || 0,
+        starredCount: starredRes.data.resultSizeEstimate || 0,
+        highPriorityCount: 0,
+        inboxCount: 0,
+        totalCount: 0,
+      };
+    } catch (e) {
+      return { unreadCount: 0, starredCount: 0, highPriorityCount: 0, totalCount: 0 };
+    }
+  }
+
   async listEmails({ folder = 'inbox', query = '', pageToken = null, maxResults = 25 }) {
+    const stats = await this.getStats();
+
     if (this.isDemo) {
       let emails = await this.getDemoEmails();
       emails = [...emails];
@@ -409,6 +475,7 @@ export class GmailIntegration extends BaseEmailIntegration {
         nextPageToken: null,
         resultSizeEstimate: emails.length,
         isDemo: true,
+        stats,
       };
     }
 
@@ -438,6 +505,7 @@ export class GmailIntegration extends BaseEmailIntegration {
         nextPageToken: response.data.nextPageToken || null,
         resultSizeEstimate: response.data.resultSizeEstimate || messages.length,
         isDemo: false,
+        stats,
       };
     } catch (error) {
       if (error.code === 401 || error.message?.includes('invalid_grant')) {

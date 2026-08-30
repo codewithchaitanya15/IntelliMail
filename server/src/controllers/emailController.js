@@ -63,6 +63,18 @@ export const EmailController = {
     }
   },
 
+  async getStats(req, res, next) {
+    try {
+      const stats = await EmailService.getStats(req.user._id);
+      res.status(200).json({
+        success: true,
+        data: stats,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async markAsRead(req, res, next) {
     try {
       const result = await EmailService.markAsRead(req.user._id, req.params.id);

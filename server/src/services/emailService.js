@@ -14,6 +14,11 @@ export const EmailService = {
     return result;
   },
 
+  async getStats(userId) {
+    const integration = await GmailService.getIntegrationForUser(userId);
+    return integration.getStats();
+  },
+
   async getEmail(userId, emailId) {
     const integration = await GmailService.getIntegrationForUser(userId);
     let email = await integration.getEmail(emailId);
