@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   X,
   Send,
@@ -10,11 +10,16 @@ import {
   FileEdit,
   Maximize2,
   Minimize2,
+  Mic,
+  MicOff,
+  Languages,
+  BookOpen,
 } from 'lucide-react';
 import { useUIStore } from '../../store/uiStore.js';
 import { useEmailStore } from '../../store/emailStore.js';
 import { aiService } from '../../services/ai.js';
 import { validateComposeForm } from '../../utils/validators.js';
+import { TemplatesModal } from './TemplatesModal.jsx';
 import toast from 'react-hot-toast';
 
 export const ComposeModal = () => {
@@ -27,7 +32,11 @@ export const ComposeModal = () => {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [selectedTone, setSelectedTone] = useState('Professional');
   const [isMaximized, setIsMaximized] = useState(false);
+  const [showTemplatesModal, setShowTemplatesModal] = useState(false);
+  const [showTranslateMenu, setShowTranslateMenu] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [errors, setErrors] = useState({});
+  const recognitionRef = useRef(null);
 
   if (!composeOpen) return null;
 
@@ -120,189 +129,361 @@ export const ComposeModal = () => {
     }
   };
 
+  const toggleVoiceDictation = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error('Voice dictation is not supported in this browser. Please use Chrome or Edge.');
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        toast.success('🎙️ Listening... Speak your email thoughts clearly!');
+      };
+
+      recognition.onresult = async (event) => {
+        const transcriptText = event.results[0][0].transcript;
+        setIsListening(false);
+        if (!transcriptText) return;
+
+        toast.loading('AI is drafting your email from voice...', { id: 'voice-ai' });
+        setIsAiLoading(true);
+        try {
+          const res = await aiService.formatVoiceDictation({
+            transcript: transcriptText,
+            tone: selectedTone,
+          });
+          if (res) {
+            updateComposeDraft({
+              subject: composeDraft.subject || res.subject || 'Voice Note Update',
+              body: res.body || transcriptText,
+            });
+            toast.success('Voice email formatted with AI!', { id: 'voice-ai' });
+          }
+        } catch (e) {
+          updateComposeDraft({
+            body: `${composeDraft.body ? composeDraft.body + '\n\n' : ''}${transcriptText}`,
+          });
+          toast.dismiss('voice-ai');
+        } finally {
+          setIsAiLoading(false);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        setIsListening(false);
+        toast.error(`Microphone notice: ${event.error}`);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      setIsListening(false);
+      toast.error('Failed to access microphone');
+    }
+  };
+
+  const handleTranslateDraft = async (targetLanguage) => {
+    setShowTranslateMenu(false);
+    if (!composeDraft.body || composeDraft.body.trim().length < 3) {
+      toast.error('Please enter message text to translate');
+      return;
+    }
+
+    setIsAiLoading(true);
+    try {
+      const res = await aiService.translateEmail({
+        text: composeDraft.body,
+        targetLanguage,
+      });
+
+      if (res && res.translatedText) {
+        updateComposeDraft({ body: res.translatedText });
+        toast.success(`Translated draft into ${targetLanguage}!`);
+      }
+    } catch (err) {
+      toast.error('Translation failed');
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
+  const handleSelectTemplate = (template) => {
+    updateComposeDraft({
+      subject: template.subject,
+      body: template.body,
+    });
+    toast.success(`Loaded "${template.title}" template!`);
+  };
+
+  const TRANSLATE_LANGUAGES = ['Spanish', 'French', 'German', 'Japanese', 'Hindi', 'Chinese', 'Italian', 'Portuguese', 'Arabic'];
+
   return (
-    <div
-      className={`fixed z-50 bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-200 overflow-hidden ${
-        isMaximized
-          ? 'inset-4 rounded-3xl'
-          : 'bottom-0 right-4 sm:right-8 w-full sm:w-[640px] h-[590px] rounded-t-3xl border-b-0'
-      }`}
-    >
-      {/* Top Header */}
-      <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <FileEdit className="w-4 h-4 text-brand-400" />
-          <span className="font-semibold text-xs">
-            {composeDraft.subject ? `Compose: ${composeDraft.subject}` : 'New Message'}
-          </span>
-        </div>
+    <>
+      <TemplatesModal
+        isOpen={showTemplatesModal}
+        onClose={() => setShowTemplatesModal(false)}
+        onSelectTemplate={handleSelectTemplate}
+      />
 
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setIsMaximized(!isMaximized)}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-            title={isMaximized ? 'Minimize' : 'Maximize'}
-          >
-            {isMaximized ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-          </button>
-          <button
-            onClick={closeCompose}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-            title="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Form Fields */}
-      <form onSubmit={handleSend} className="flex-1 flex flex-col overflow-hidden text-xs">
-        {/* Recipient To */}
-        <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
-          <span className="text-slate-400 font-medium w-12">To:</span>
-          <input
-            type="email"
-            value={composeDraft.to}
-            onChange={(e) => updateComposeDraft({ to: e.target.value })}
-            placeholder="recipient@example.com"
-            className="flex-1 bg-transparent border-none p-0 focus:outline-hidden text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
-          />
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-            {!showCc && (
-              <button
-                type="button"
-                onClick={() => setShowCc(true)}
-                className="hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                Cc
-              </button>
-            )}
-            {!showBcc && (
-              <button
-                type="button"
-                onClick={() => setShowBcc(true)}
-                className="hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                Bcc
-              </button>
-            )}
-          </div>
-        </div>
-        {errors.to && <p className="px-4 py-0.5 text-[10px] text-rose-500">{errors.to}</p>}
-
-        {/* CC Field */}
-        {showCc && (
-          <div className="px-4 py-1.5 border-b border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
-            <span className="text-slate-400 font-medium w-12">Cc:</span>
-            <input
-              type="text"
-              value={composeDraft.cc || ''}
-              onChange={(e) => updateComposeDraft({ cc: e.target.value })}
-              placeholder="carbon_copy@example.com"
-              className="flex-1 bg-transparent border-none p-0 focus:outline-hidden text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
-            />
-          </div>
-        )}
-
-        {/* BCC Field */}
-        {showBcc && (
-          <div className="px-4 py-1.5 border-b border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
-            <span className="text-slate-400 font-medium w-12">Bcc:</span>
-            <input
-              type="text"
-              value={composeDraft.bcc || ''}
-              onChange={(e) => updateComposeDraft({ bcc: e.target.value })}
-              placeholder="blind_copy@example.com"
-              className="flex-1 bg-transparent border-none p-0 focus:outline-hidden text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
-            />
-          </div>
-        )}
-
-        {/* Subject Field + AI Generator */}
-        <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
-          <span className="text-slate-400 font-medium w-12">Subject:</span>
-          <input
-            type="text"
-            value={composeDraft.subject}
-            onChange={(e) => updateComposeDraft({ subject: e.target.value })}
-            placeholder="Subject of your email..."
-            className="flex-1 bg-transparent border-none p-0 focus:outline-hidden text-slate-900 dark:text-slate-100 font-semibold placeholder:text-slate-400 placeholder:font-normal"
-          />
-          <button
-            type="button"
-            onClick={handleGenerateSubject}
-            disabled={isAiLoading}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-ai-500/10 text-ai-600 dark:text-ai-400 hover:bg-ai-500/20 text-[11px] font-medium transition-colors cursor-pointer"
-            title="Generate smart subject from body content"
-          >
-            <Sparkles className="w-3 h-3" />
-            <span>AI Subject</span>
-          </button>
-        </div>
-        {errors.subject && <p className="px-4 py-0.5 text-[10px] text-rose-500">{errors.subject}</p>}
-
-        {/* Email Body */}
-        <div className="flex-1 p-4 overflow-y-auto">
-          <textarea
-            value={composeDraft.body}
-            onChange={(e) => updateComposeDraft({ body: e.target.value })}
-            placeholder="Write your email here, then click any Tone button below to instantly rewrite it with AI..."
-            className="w-full h-full bg-transparent border-none p-0 focus:outline-hidden text-slate-800 dark:text-slate-200 placeholder:text-slate-400 resize-none leading-relaxed text-xs"
-          />
-        </div>
-        {errors.body && <p className="px-4 py-0.5 text-[10px] text-rose-500">{errors.body}</p>}
-
-        {/* Bottom AI Toolbar & Actions */}
-        <div className="p-3 bg-slate-50 dark:bg-slate-950/60 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
-          {/* Clickable AI Tone Pills */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 mr-0.5 flex items-center gap-1">
-              <Wand2 className={`w-3 h-3 text-ai-500 ${isAiLoading ? 'animate-spin' : ''}`} />
-              Tone:
-            </span>
-            {TONES.map((t) => {
-              const isActive = selectedTone === t.id;
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => handleApplyTone(t.id)}
-                  disabled={isAiLoading}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                    isActive
-                      ? 'bg-brand-600 text-white shadow-md shadow-brand-500/20 scale-[1.02]'
-                      : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/70 border border-slate-200 dark:border-slate-700'
-                  }`}
-                  title={`Click to rewrite whole email in ${t.label} tone`}
-                >
-                  <span>{t.icon}</span>
-                  <span>{t.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Send and Cancel */}
+      <div
+        className={`fixed z-50 bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-200 overflow-hidden ${
+          isMaximized
+            ? 'inset-4 rounded-3xl'
+            : 'bottom-0 right-4 sm:right-8 w-full sm:w-[650px] h-[600px] rounded-t-3xl border-b-0'
+        }`}
+      >
+        {/* Top Header */}
+        <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2">
+            <FileEdit className="w-4 h-4 text-brand-400" />
+            <span className="font-semibold text-xs truncate max-w-[280px]">
+              {composeDraft.subject ? `Compose: ${composeDraft.subject}` : 'New Message'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {/* Templates button */}
             <button
               type="button"
-              onClick={closeCompose}
-              className="px-3 py-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl font-medium transition-colors cursor-pointer"
+              onClick={() => setShowTemplatesModal(true)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition-colors cursor-pointer border border-slate-700"
+              title="Browse AI Email Templates"
             >
-              Discard
+              <BookOpen className="w-3.5 h-3.5 text-brand-400" />
+              <span className="hidden sm:inline">Templates</span>
+            </button>
+
+            {/* Voice Dictation Button */}
+            <button
+              type="button"
+              onClick={toggleVoiceDictation}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                isListening
+                  ? 'bg-rose-500 text-white animate-pulse shadow-md shadow-rose-500/30'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+              }`}
+              title="Voice-to-Email (Dictation)"
+            >
+              {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5 text-rose-400" />}
+              <span className="hidden sm:inline">{isListening ? 'Listening...' : 'Voice'}</span>
             </button>
 
             <button
-              type="submit"
-              disabled={isSending}
-              className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white rounded-xl font-semibold shadow-md hover:shadow-glow-brand transition-all disabled:opacity-50 cursor-pointer"
+              onClick={() => setIsMaximized(!isMaximized)}
+              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              title={isMaximized ? 'Minimize' : 'Maximize'}
             >
-              <Send className={`w-3.5 h-3.5 ${isSending ? 'animate-pulse' : ''}`} />
-              <span>{isSending ? 'Sending...' : 'Send Message'}</span>
+              {isMaximized ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            </button>
+            <button
+              onClick={closeCompose}
+              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
-      </form>
-    </div>
+
+        {/* Form Fields */}
+        <form onSubmit={handleSend} className="flex-1 flex flex-col overflow-hidden text-xs">
+          {/* Recipient To */}
+          <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
+            <span className="text-slate-400 font-medium w-12">To:</span>
+            <input
+              type="email"
+              value={composeDraft.to}
+              onChange={(e) => updateComposeDraft({ to: e.target.value })}
+              placeholder="recipient@example.com"
+              className="flex-1 bg-transparent border-none p-0 focus:outline-hidden text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+            />
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+              {!showCc && (
+                <button
+                  type="button"
+                  onClick={() => setShowCc(true)}
+                  className="hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  Cc
+                </button>
+              )}
+              {!showBcc && (
+                <button
+                  type="button"
+                  onClick={() => setShowBcc(true)}
+                  className="hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  Bcc
+                </button>
+              )}
+            </div>
+          </div>
+          {errors.to && <p className="px-4 py-0.5 text-[10px] text-rose-500">{errors.to}</p>}
+
+          {/* CC Field */}
+          {showCc && (
+            <div className="px-4 py-1.5 border-b border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
+              <span className="text-slate-400 font-medium w-12">Cc:</span>
+              <input
+                type="text"
+                value={composeDraft.cc || ''}
+                onChange={(e) => updateComposeDraft({ cc: e.target.value })}
+                placeholder="carbon_copy@example.com"
+                className="flex-1 bg-transparent border-none p-0 focus:outline-hidden text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+              />
+            </div>
+          )}
+
+          {/* BCC Field */}
+          {showBcc && (
+            <div className="px-4 py-1.5 border-b border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
+              <span className="text-slate-400 font-medium w-12">Bcc:</span>
+              <input
+                type="text"
+                value={composeDraft.bcc || ''}
+                onChange={(e) => updateComposeDraft({ bcc: e.target.value })}
+                placeholder="blind_copy@example.com"
+                className="flex-1 bg-transparent border-none p-0 focus:outline-hidden text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+              />
+            </div>
+          )}
+
+          {/* Subject Field + AI Generator */}
+          <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800/80 flex items-center gap-2">
+            <span className="text-slate-400 font-medium w-12">Subject:</span>
+            <input
+              type="text"
+              value={composeDraft.subject}
+              onChange={(e) => updateComposeDraft({ subject: e.target.value })}
+              placeholder="Subject of your email..."
+              className="flex-1 bg-transparent border-none p-0 focus:outline-hidden text-slate-900 dark:text-slate-100 font-semibold placeholder:text-slate-400 placeholder:font-normal"
+            />
+            <button
+              type="button"
+              onClick={handleGenerateSubject}
+              disabled={isAiLoading}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-ai-500/10 text-ai-600 dark:text-ai-400 hover:bg-ai-500/20 text-[11px] font-medium transition-colors cursor-pointer"
+              title="Generate smart subject from body content"
+            >
+              <Sparkles className="w-3 h-3" />
+              <span>AI Subject</span>
+            </button>
+          </div>
+          {errors.subject && <p className="px-4 py-0.5 text-[10px] text-rose-500">{errors.subject}</p>}
+
+          {/* Email Body */}
+          <div className="flex-1 p-4 overflow-y-auto">
+            <textarea
+              value={composeDraft.body}
+              onChange={(e) => updateComposeDraft({ body: e.target.value })}
+              placeholder="Write your email here, dictate with voice, or pick a template..."
+              className="w-full h-full bg-transparent border-none p-0 focus:outline-hidden text-slate-800 dark:text-slate-200 placeholder:text-slate-400 resize-none leading-relaxed text-xs"
+            />
+          </div>
+          {errors.body && <p className="px-4 py-0.5 text-[10px] text-rose-500">{errors.body}</p>}
+
+          {/* Bottom AI Toolbar & Actions */}
+          <div className="p-3 bg-slate-50 dark:bg-slate-950/60 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+            {/* Clickable AI Tone Pills + Translation */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 mr-0.5 flex items-center gap-1">
+                <Wand2 className={`w-3 h-3 text-ai-500 ${isAiLoading ? 'animate-spin' : ''}`} />
+                Tone:
+              </span>
+              {TONES.map((t) => {
+                const isActive = selectedTone === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => handleApplyTone(t.id)}
+                    disabled={isAiLoading}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-brand-600 text-white shadow-md shadow-brand-500/20 scale-[1.02]'
+                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/70 border border-slate-200 dark:border-slate-700'
+                    }`}
+                    title={`Click to rewrite whole email in ${t.label} tone`}
+                  >
+                    <span>{t.icon}</span>
+                    <span>{t.label}</span>
+                  </button>
+                );
+              })}
+
+              {/* Translate Draft Dropdown */}
+              <div className="relative inline-block ml-1">
+                <button
+                  type="button"
+                  onClick={() => setShowTranslateMenu((prev) => !prev)}
+                  disabled={isAiLoading}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/70 border border-slate-200 dark:border-slate-700 cursor-pointer"
+                  title="Translate email draft into another language"
+                >
+                  <Languages className="w-3.5 h-3.5 text-brand-500" />
+                  <span>Translate</span>
+                  <ChevronDown className="w-3 h-3 text-slate-400" />
+                </button>
+
+                {showTranslateMenu && (
+                  <div className="absolute left-0 bottom-full mb-1 z-50 w-36 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl py-1 animate-in fade-in zoom-in-95 duration-100">
+                    <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Target Language
+                    </div>
+                    {TRANSLATE_LANGUAGES.map((lang) => (
+                      <button
+                        key={lang}
+                        type="button"
+                        onClick={() => handleTranslateDraft(lang)}
+                        className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-brand-50 dark:hover:bg-brand-950/40 hover:text-brand-600 transition-colors cursor-pointer"
+                      >
+                        {lang}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Send and Cancel */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={closeCompose}
+                className="px-3 py-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl font-medium transition-colors cursor-pointer"
+              >
+                Discard
+              </button>
+
+              <button
+                type="submit"
+                disabled={isSending}
+                className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white rounded-xl font-semibold shadow-md hover:shadow-glow-brand transition-all disabled:opacity-50 cursor-pointer"
+              >
+                <Send className={`w-3.5 h-3.5 ${isSending ? 'animate-pulse' : ''}`} />
+                <span>{isSending ? 'Sending...' : 'Send Message'}</span>
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </>
   );
 };

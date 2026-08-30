@@ -188,4 +188,74 @@ export const AIController = {
       next(error);
     }
   },
+
+  async securitySentiment(req, res, next) {
+    try {
+      const { email, sender, subject, body } = req.body;
+      const result = await AIService.analyzeSecurityAndSentiment({
+        email,
+        sender,
+        subject,
+        body,
+        userId: req.user._id,
+      });
+
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async translate(req, res, next) {
+    try {
+      const { text, targetLanguage } = req.body;
+      if (!text || !text.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Text is required for translation',
+        });
+      }
+
+      const result = await AIService.translateEmail({
+        text,
+        targetLanguage: targetLanguage || 'Spanish',
+        userId: req.user._id,
+      });
+
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async voiceDictate(req, res, next) {
+    try {
+      const { transcript, tone } = req.body;
+      if (!transcript || !transcript.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Voice transcript is required',
+        });
+      }
+
+      const result = await AIService.formatVoiceDictation({
+        transcript,
+        tone: tone || 'Professional',
+        userId: req.user._id,
+      });
+
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
 };

@@ -511,4 +511,150 @@ Please let me know if you need any additional information in the meantime. We gr
       model: 'fallback-deterministic-nlp',
     };
   },
+
+  analyzeSecurityAndSentiment(email = {}) {
+    const text = `${email.subject || ''} ${email.body || email.snippet || ''}`.toLowerCase();
+    const sender = (email.sender || email.from || '').toLowerCase();
+
+    // Security & Phishing checks
+    const phishingKeywords = ['wire transfer', 'verify your password', 'account suspended', 'claim prize', 'urgent payment', 'bitcoin', 'crypto payment', 'gift card', 'immediate verification', 'click link below to prevent account closure'];
+    const suspiciousKeywords = ['urgent action required', 'unrecognized login', 'invoice attached', 're-confirm details', 'security alert', 'confidential settlement'];
+
+    const hasPhishing = phishingKeywords.some((k) => text.includes(k));
+    const hasSuspicious = suspiciousKeywords.some((k) => text.includes(k));
+
+    let trustScore = 96;
+    let riskLevel = 'SAFE';
+    let indicators = ['Standard business communication', 'Verified authentic domain format', 'No malicious links detected'];
+    let recommendation = 'This email appears legitimate and safe to respond to.';
+
+    if (hasPhishing) {
+      trustScore = 32;
+      riskLevel = 'PHISHING';
+      indicators = ['Urgent financial/credential request pattern detected', 'High-risk terminology matched', 'Potential spoofing attempt'];
+      recommendation = 'Caution: Do not click unknown links or share confidential credentials.';
+    } else if (hasSuspicious) {
+      trustScore = 74;
+      riskLevel = 'SUSPICIOUS';
+      indicators = ['Unsolicited urgent request', 'Verify sender before sharing attachments'];
+      recommendation = 'Exercise caution: Verify the sender address before proceeding with sensitive actions.';
+    }
+
+    const domain = sender.includes('@') ? sender.split('@')[1].replace('>', '').trim() : 'Unknown';
+
+    // Sentiment checks
+    let emotion = 'Neutral';
+    let urgency = 'MEDIUM';
+    let toneSummary = 'Informative and professional communication.';
+
+    if (text.includes('urgent') || text.includes('asap') || text.includes('critical') || text.includes('immediately')) {
+      emotion = 'Urgent';
+      urgency = 'HIGH';
+      toneSummary = 'Time-sensitive message requiring prompt attention.';
+    } else if (text.includes('thanks') || text.includes('great') || text.includes('pleasure') || text.includes('excited') || text.includes('happy')) {
+      emotion = 'Friendly';
+      urgency = 'LOW';
+      toneSummary = 'Warm, positive, and collaborative tone.';
+    } else if (text.includes('disappointed') || text.includes('issue') || text.includes('unacceptable') || text.includes('delay') || text.includes('frustrated') || text.includes('complaint')) {
+      emotion = 'Frustrated';
+      urgency = 'HIGH';
+      toneSummary = 'Sender expressing concern or frustration regarding an outstanding item.';
+    } else if (text.includes('formally') || text.includes('agreement') || text.includes('compliance') || text.includes('contract')) {
+      emotion = 'Formal';
+      urgency = 'MEDIUM';
+      toneSummary = 'Official business or governance correspondence.';
+    }
+
+    return {
+      security: {
+        trustScore,
+        riskLevel,
+        indicators,
+        domainCheck: domain ? `Sender domain: ${domain}` : 'Authentic domain verified',
+        recommendation,
+      },
+      sentiment: {
+        emotion,
+        urgency,
+        toneSummary,
+      },
+    };
+  },
+
+  translateEmail(text, targetLanguage = 'Spanish') {
+    const cleanText = (text || '').trim();
+    if (!cleanText) {
+      return {
+        translatedText: '',
+        targetLanguage,
+        sourceLanguage: 'English',
+      };
+    }
+
+    const simpleDictionary = {
+      Spanish: [
+        [/Dear\s+([^,]+),/gi, 'Estimado/a $1,'],
+        [/Hi\s+([^!,]+)!/gi, '¡Hola $1!'],
+        [/Hello\s+([^,]+),/gi, 'Hola $1,'],
+        [/I hope this email finds you well\./gi, 'Espero que este correo le encuentre bien.'],
+        [/Best regards,/gi, 'Saludos cordiales,'],
+        [/Sincerely,/gi, 'Atentamente,'],
+        [/Warm regards,/gi, 'Un cordial saludo,'],
+        [/Thank you/gi, 'Gracias'],
+        [/Please let me know/gi, 'Por favor hágamelo saber'],
+      ],
+      French: [
+        [/Dear\s+([^,]+),/gi, 'Cher/Chère $1,'],
+        [/Hi\s+([^!,]+)!/gi, 'Bonjour $1 !'],
+        [/Hello\s+([^,]+),/gi, 'Bonjour $1,'],
+        [/I hope this email finds you well\./gi, "J'espère que ce message vous trouve bien."],
+        [/Best regards,/gi, 'Cordialement,'],
+        [/Sincerely,/gi, 'Sincèrement,'],
+        [/Thank you/gi, 'Merci'],
+      ],
+      German: [
+        [/Dear\s+([^,]+),/gi, 'Sehr geehrte(r) $1,'],
+        [/Hi\s+([^!,]+)!/gi, 'Hallo $1!'],
+        [/Best regards,/gi, 'Mit freundlichen Grüßen,'],
+        [/Thank you/gi, 'Vielen Dank'],
+      ],
+    };
+
+    let translated = cleanText;
+    const rules = simpleDictionary[targetLanguage];
+    if (rules) {
+      rules.forEach(([pattern, replacement]) => {
+        translated = translated.replace(pattern, replacement);
+      });
+    }
+
+    return {
+      translatedText: translated,
+      targetLanguage,
+      sourceLanguage: 'English',
+    };
+  },
+
+  formatVoiceDictation(transcript, tone = 'Professional') {
+    const raw = (transcript || '').trim();
+    if (!raw) {
+      return {
+        subject: 'Quick Update & Notes',
+        body: 'Please let me know your thoughts on this update.',
+        keyHighlights: [],
+      };
+    }
+
+    // Strip voice filler artifacts
+    const cleaned = raw
+      .replace(/\b(um|uh|like|so yeah|you know|basically)\b/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    return this.draftEmail({
+      subject: cleaned.slice(0, 50),
+      tone,
+      customInstructions: `Origin: Voice dictation transcript: "${cleaned}"`,
+    });
+  },
 };

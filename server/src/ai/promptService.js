@@ -238,4 +238,80 @@ Return ONLY valid JSON matching this exact structure:
 ${customInstructions ? `Additional details: ${customInstructions}` : ''}`,
     };
   },
+
+  getSecurityAndSentimentPrompt({ sender, subject, body }) {
+    return {
+      system: `You are an elite Cybersecurity Email Auditor and Sentiment Intelligence Engine.
+Analyze the provided email for:
+1. Security & Phishing Risk:
+   - Trust Score (0 to 100: 90-100 = Verified/Safe, 65-89 = Caution/Suspicious, 0-64 = High Risk Phishing).
+   - Risk Category ("SAFE" | "SUSPICIOUS" | "PHISHING").
+   - Indicators: Check for urgent financial demands, suspicious credential verification, domain spoofing, mismatched sender names, fake invoice links, or wire transfer coercion.
+   - Domain Check: Analyze sender domain credibility.
+   - Actionable Recommendation: Brief 1-sentence guidance for user safety.
+2. Sender Sentiment & Urgency:
+   - Emotion: Primary tone ("Friendly" | "Frustrated" | "Urgent" | "Formal" | "Neutral").
+   - Urgency Level: ("CRITICAL" | "HIGH" | "MEDIUM" | "LOW").
+   - Tone Summary: 1 concise sentence describing the sender's emotional stance and intent.
+
+Return ONLY valid JSON matching:
+{
+  "security": {
+    "trustScore": 95,
+    "riskLevel": "SAFE",
+    "indicators": ["Legitimate domain", "Standard business communication"],
+    "domainCheck": "Known authentic domain",
+    "recommendation": "Safe to view and reply."
+  },
+  "sentiment": {
+    "emotion": "Friendly",
+    "urgency": "MEDIUM",
+    "toneSummary": "Polite and collaborative check-in regarding project milestones."
+  }
+}`,
+      user: `Sender: ${sender}
+Subject: ${subject}
+Content:
+${body}`,
+    };
+  },
+
+  getTranslateEmailPrompt({ text, targetLanguage = 'Spanish' }) {
+    return {
+      system: `You are an expert bilingual professional translator.
+Translate the following email into ${targetLanguage}.
+Requirements:
+1. Preserve the original email's professional formatting, bullet points, greetings, and closing signatures.
+2. Ensure natural, culturally accurate idioms and business tone.
+3. Return ONLY valid JSON matching:
+{
+  "translatedText": "The fully translated email content",
+  "targetLanguage": "${targetLanguage}",
+  "sourceLanguage": "Detected source language"
+}`,
+      user: `Text to translate:
+${text}`,
+    };
+  },
+
+  getVoiceDictatePrompt({ transcript, tone = 'Professional' }) {
+    return {
+      system: `You are an AI Executive Dictation Assistant.
+The user spoke their raw, unedited thoughts into a microphone.
+Your task is to transform their spoken transcript into a beautifully structured, comprehensive, polished, and ready-to-send business email in the requested tone: ${tone}.
+
+Requirements:
+1. Clean up filler words (um, uh, like, so yeah).
+2. Infer the intended subject line, recipient greeting, structured body paragraphs, bullet points (if listing items), and sign-off.
+3. Format neatly with proper punctuation and spacing.
+4. Return ONLY valid JSON matching:
+{
+  "subject": "Extracted or inferred smart subject line",
+  "body": "The complete, polished, structured email body",
+  "keyHighlights": ["Point 1", "Point 2"]
+}`,
+      user: `Spoken transcript:
+"${transcript}"`,
+    };
+  },
 };

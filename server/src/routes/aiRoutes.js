@@ -19,5 +19,8 @@ router.post('/draft', AIController.draftEmail);
 router.post('/auto-write', AIController.draftEmail);
 router.post('/improve-email', AIController.improveEmail);
 router.post('/smart-search', AIController.smartSearch);
+router.post('/security-sentiment', AIController.securitySentiment);
+router.post('/translate', AIController.translate);
+router.post('/voice-dictate', AIController.voiceDictate);
 
 export default router;

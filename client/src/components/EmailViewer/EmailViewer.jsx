@@ -15,6 +15,17 @@ import {
   Send,
   MoreVertical,
   CheckCircle,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  Languages,
+  ChevronDown,
+  Activity,
+  AlertTriangle,
+  Flame,
+  Smile,
+  Frown,
+  Briefcase,
 } from 'lucide-react';
 import { parseSender, getInitials, sanitizeEmailBody } from '../../utils/emailParser.js';
 import { formatFullDateTime } from '../../utils/formatDate.js';
@@ -52,11 +63,26 @@ export const EmailViewer = ({ emailId }) => {
   const [showExplainModal, setShowExplainModal] = useState(false);
   const [showActionItems, setShowActionItems] = useState(false);
   const [showDeadlines, setShowDeadlines] = useState(false);
+  const [securityData, setSecurityData] = useState(null);
+  const [isSecurityLoading, setIsSecurityLoading] = useState(false);
+  const [showSecurityDetails, setShowSecurityDetails] = useState(false);
+
+  // Translation State
+  const [translatedBody, setTranslatedBody] = useState(null);
+  const [selectedLanguage, setSelectedLanguage] = useState(null);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [showTranslateMenu, setShowTranslateMenu] = useState(false);
+
   const replySectionRef = useRef(null);
+
+  const TRANSLATE_LANGUAGES = ['Spanish', 'French', 'German', 'Japanese', 'Hindi', 'Chinese', 'Italian', 'Portuguese', 'Arabic'];
 
   useEffect(() => {
     if (emailId) {
       fetchEmailDetail(emailId);
+      setTranslatedBody(null);
+      setSelectedLanguage(null);
+      setSecurityData(null);
     }
   }, [emailId]);
 
@@ -64,7 +90,56 @@ export const EmailViewer = ({ emailId }) => {
     if (currentEmail?.threadId) {
       fetchThread(currentEmail.threadId);
     }
-  }, [currentEmail?.threadId]);
+    // Auto-fetch Security and Sentiment Analysis on load
+    if (currentEmail && !securityData && !isSecurityLoading) {
+      loadSecurityAndSentiment();
+    }
+  }, [currentEmail?.id, currentEmail?.threadId]);
+
+  const loadSecurityAndSentiment = async () => {
+    if (!currentEmail) return;
+    setIsSecurityLoading(true);
+    try {
+      const data = await aiService.analyzeSecurityAndSentiment({
+        email: currentEmail,
+        sender: currentEmail.sender || currentEmail.from,
+        subject: currentEmail.subject,
+        body: currentEmail.body || currentEmail.snippet,
+      });
+      setSecurityData(data);
+    } catch (e) {
+      console.warn('Security analysis fallback error:', e);
+    } finally {
+      setIsSecurityLoading(false);
+    }
+  };
+
+  const handleTranslate = async (targetLanguage) => {
+    setShowTranslateMenu(false);
+    if (!currentEmail?.body && !currentEmail?.snippet) return;
+
+    setIsTranslating(true);
+    try {
+      const res = await aiService.translateEmail({
+        text: currentEmail.body || currentEmail.snippet,
+        targetLanguage,
+      });
+      if (res && res.translatedText) {
+        setTranslatedBody(res.translatedText);
+        setSelectedLanguage(targetLanguage);
+        toast.success(`Translated into ${targetLanguage}!`);
+      }
+    } catch (e) {
+      toast.error('Translation failed');
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  const handleResetTranslation = () => {
+    setTranslatedBody(null);
+    setSelectedLanguage(null);
+  };
 
   if (isDetailLoading || !currentEmail) {
     return <EmailViewerSkeleton />;
@@ -126,6 +201,29 @@ export const EmailViewer = ({ emailId }) => {
       }, 100);
     }
   };
+
+  const getSentimentBadge = (emotion) => {
+    switch (emotion) {
+      case 'Friendly':
+        return { label: 'Friendly & Warm', icon: Smile, color: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' };
+      case 'Frustrated':
+        return { label: 'Frustrated / Urgent Concern', icon: Frown, color: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border-rose-200 dark:border-rose-800' };
+      case 'Urgent':
+        return { label: 'High Urgency', icon: Flame, color: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800' };
+      case 'Formal':
+        return { label: 'Formal Business', icon: Briefcase, color: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800' };
+      default:
+        return { label: 'Neutral Tone', icon: Activity, color: 'bg-slate-50 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700' };
+    }
+  };
+
+  const security = securityData?.security;
+  const sentiment = securityData?.sentiment;
+  const sentimentInfo = sentiment ? getSentimentBadge(sentiment.emotion) : null;
+  const SentimentIcon = sentimentInfo?.icon;
+
+  const isPhishingRisk = security?.riskLevel === 'PHISHING';
+  const isSuspicious = security?.riskLevel === 'SUSPICIOUS';
 
   return (
     <div className="flex-1 flex flex-col h-full bg-white dark:bg-slate-900 overflow-y-auto">
@@ -216,6 +314,37 @@ export const EmailViewer = ({ emailId }) => {
             <span>{showReplyEditor ? 'Hide Reply' : 'AI Reply'}</span>
           </button>
 
+          {/* Translate Dropdown */}
+          <div className="relative inline-block">
+            <button
+              onClick={() => setShowTranslateMenu((prev) => !prev)}
+              disabled={isTranslating}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-medium transition-colors cursor-pointer"
+              title="Translate email body"
+            >
+              <Languages className={`w-3.5 h-3.5 text-brand-500 ${isTranslating ? 'animate-spin' : ''}`} />
+              <span>{selectedLanguage ? `Translated (${selectedLanguage})` : 'Translate'}</span>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
+            </button>
+
+            {showTranslateMenu && (
+              <div className="absolute right-0 top-full mt-1 z-50 w-36 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl py-1 animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Translate to
+                </div>
+                {TRANSLATE_LANGUAGES.map((lang) => (
+                  <button
+                    key={lang}
+                    onClick={() => handleTranslate(lang)}
+                    className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-brand-50 dark:hover:bg-brand-950/40 hover:text-brand-600 transition-colors cursor-pointer"
+                  >
+                    {lang}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Explain Email */}
           <button
             onClick={() => setShowExplainModal(true)}
@@ -264,9 +393,105 @@ export const EmailViewer = ({ emailId }) => {
             <div className="flex flex-wrap items-center gap-2">
               {currentEmail.category && <CategoryBadge category={currentEmail.category} />}
               {currentEmail.priority && <PriorityBadge priority={currentEmail.priority} />}
+
+              {/* Sender Emotion & Urgency Gauge Badge */}
+              {sentiment && (
+                <div
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold border ${sentimentInfo.color}`}
+                  title={`Sender Sentiment: ${sentiment.emotion} | Urgency: ${sentiment.urgency}`}
+                >
+                  {SentimentIcon && <SentimentIcon className="w-3.5 h-3.5" />}
+                  <span>{sentimentInfo.label}</span>
+                  <span className="text-[10px] opacity-75 font-mono">({sentiment.urgency} Urgency)</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
+
+        {/* 🛡️ AI Security & Scam Trust Shield Banner */}
+        {security && (
+          <div
+            className={`p-4 rounded-2xl border transition-all ${
+              isPhishingRisk
+                ? 'bg-rose-500/10 border-rose-500/30 text-rose-900 dark:text-rose-200'
+                : isSuspicious
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
+                : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-900 dark:text-emerald-200'
+            }`}
+          >
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`p-2 rounded-xl text-white ${
+                    isPhishingRisk
+                      ? 'bg-rose-600'
+                      : isSuspicious
+                      ? 'bg-amber-600'
+                      : 'bg-emerald-600'
+                  }`}
+                >
+                  {isPhishingRisk ? (
+                    <ShieldAlert className="w-5 h-5" />
+                  ) : isSuspicious ? (
+                    <AlertTriangle className="w-5 h-5" />
+                  ) : (
+                    <ShieldCheck className="w-5 h-5" />
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider">
+                      {isPhishingRisk
+                        ? '🚨 High Risk Phishing Warning'
+                        : isSuspicious
+                        ? '⚠️ Suspicious Sender Notice'
+                        : '🛡️ Verified Authentic Communication'}
+                    </span>
+                    <span
+                      className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                        isPhishingRisk
+                          ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300'
+                          : isSuspicious
+                          ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                          : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                      }`}
+                    >
+                      Trust Score: {security.trustScore}%
+                    </span>
+                  </div>
+                  <p className="text-xs opacity-90 mt-0.5">
+                    {security.recommendation} {sentiment?.toneSummary && `• ${sentiment.toneSummary}`}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowSecurityDetails((prev) => !prev)}
+                className="text-xs font-semibold underline opacity-80 hover:opacity-100 cursor-pointer"
+              >
+                {showSecurityDetails ? 'Hide Security Details' : 'View Security Details →'}
+              </button>
+            </div>
+
+            {/* Expandable Security Breakdown */}
+            {showSecurityDetails && (
+              <div className="mt-3 pt-3 border-t border-current/15 text-xs space-y-1.5 animate-in fade-in duration-150">
+                <p>
+                  <strong className="font-semibold">Domain Check:</strong> {security.domainCheck}
+                </p>
+                <div className="flex items-start gap-1">
+                  <strong className="font-semibold">Indicators:</strong>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    {security.indicators.map((ind, i) => (
+                      <li key={i}>{ind}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* AI Summary Card (if generated or stored) */}
         {currentEmail.aiSummary && <AISummaryCard summary={currentEmail.aiSummary} />}
@@ -302,11 +527,29 @@ export const EmailViewer = ({ emailId }) => {
           </div>
         </div>
 
+        {/* Translation Banner (if translated) */}
+        {translatedBody && (
+          <div className="p-3 bg-brand-500/10 border border-brand-500/20 rounded-2xl flex items-center justify-between text-xs text-brand-900 dark:text-brand-200">
+            <div className="flex items-center gap-2">
+              <Languages className="w-4 h-4 text-brand-500" />
+              <span>Translated into <strong>{selectedLanguage}</strong> via Gemini AI</span>
+            </div>
+            <button
+              onClick={handleResetTranslation}
+              className="font-semibold underline hover:text-brand-600 cursor-pointer"
+            >
+              Show Original English
+            </button>
+          </div>
+        )}
+
         {/* Email Body */}
         <div className="p-6 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800/80 shadow-xs">
           <div
-            className="prose dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 text-sm leading-relaxed overflow-x-auto"
-            dangerouslySetInnerHTML={{ __html: sanitizeEmailBody(currentEmail.body || currentEmail.snippet) }}
+            className="prose dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 text-sm leading-relaxed overflow-x-auto whitespace-pre-wrap"
+            dangerouslySetInnerHTML={{
+              __html: sanitizeEmailBody(translatedBody || currentEmail.body || currentEmail.snippet),
+            }}
           />
         </div>
 
@@ -375,3 +618,4 @@ export const EmailViewer = ({ emailId }) => {
     </div>
   );
 };
+
