@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Inbox,
@@ -19,12 +19,16 @@ import { useEmailStore } from '../../store/emailStore.js';
 
 export const Sidebar = () => {
   const { sidebarOpen, openCompose } = useUIStore();
-  const { stats } = useEmailStore();
+  const { stats, fetchStats } = useEmailStore();
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
   const navItems = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/inbox', label: 'Inbox', icon: Inbox, badge: stats.unreadCount || null, badgeColor: 'bg-brand-500 text-white' },
-    { to: '/starred', label: 'Starred', icon: Star, badge: stats.starredCount || null, badgeColor: 'bg-amber-500/20 text-amber-600 dark:text-amber-400' },
+    { to: '/inbox', label: 'Inbox', icon: Inbox, badge: (stats?.unreadCount && stats.unreadCount > 0) ? stats.unreadCount : null, badgeColor: 'bg-brand-500 text-white' },
+    { to: '/starred', label: 'Starred', icon: Star, badge: (stats?.starredCount && stats.starredCount > 0) ? stats.starredCount : null, badgeColor: 'bg-amber-500/20 text-amber-600 dark:text-amber-400' },
     { to: '/sent', label: 'Sent', icon: Send },
     { to: '/archive', label: 'Archive', icon: Archive },
     { to: '/trash', label: 'Trash', icon: Trash2 },

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Navbar } from '../Navbar/Navbar.jsx';
 import { Sidebar } from '../Sidebar/Sidebar.jsx';
@@ -6,10 +6,17 @@ import { NotificationDrawer } from '../NotificationDrawer/NotificationDrawer.jsx
 import { ComposeModal } from '../ComposeEmail/ComposeModal.jsx';
 import { SmartSearchModal } from '../AITools/SmartSearchModal.jsx';
 import { useSocket } from '../../hooks/useSocket.js';
+import { useEmailStore } from '../../store/emailStore.js';
 
 export const AppShell = () => {
+  const { fetchStats } = useEmailStore();
+
   // Subscribe to real-time Socket.IO events
   useSocket();
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
