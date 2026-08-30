@@ -204,19 +204,19 @@ export const TemplatesModal = ({ isOpen, onClose, onSelectTemplate }) => {
                   onSelectTemplate(tmpl);
                   onClose();
                 }}
-                className="group p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-brand-500 dark:hover:border-brand-500 bg-white dark:bg-slate-850 hover:bg-brand-50/20 dark:hover:bg-brand-950/20 transition-all cursor-pointer shadow-xs hover:shadow-md flex flex-col justify-between"
+                className="group p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-transparent hover:bg-sky-50/70 dark:hover:bg-sky-950/30 hover:border-sky-400 dark:hover:border-sky-500 transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-md hover:shadow-sky-500/10 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-brand-600 dark:text-brand-400 group-hover:bg-brand-500 group-hover:text-white transition-colors">
+                      <div className="p-1.5 rounded-lg bg-slate-100/80 dark:bg-slate-800 text-sky-600 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-colors">
                         <Icon className="w-4 h-4" />
                       </div>
-                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
+                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
                         {tmpl.title}
                       </span>
                     </div>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100/80 dark:bg-slate-800 text-slate-500 dark:text-slate-400 group-hover:bg-sky-100/60 dark:group-hover:bg-sky-900/40 group-hover:text-sky-700 dark:group-hover:text-sky-300 transition-colors">
                       {tmpl.category}
                     </span>
                   </div>
@@ -230,7 +230,7 @@ export const TemplatesModal = ({ isOpen, onClose, onSelectTemplate }) => {
                   <span className="truncate max-w-[200px] text-slate-600 dark:text-slate-300">
                     {tmpl.subject}
                   </span>
-                  <span className="text-brand-600 dark:text-brand-400 font-semibold group-hover:underline flex-shrink-0">
+                  <span className="text-sky-600 dark:text-sky-400 font-semibold group-hover:underline flex-shrink-0">
                     Use Template →
                   </span>
                 </div>
