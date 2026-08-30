@@ -2,6 +2,13 @@ import { create } from 'zustand';
 import api from '../services/api.js';
 import toast from 'react-hot-toast';
 
+const computeStats = (emails) => ({
+  unreadCount: emails.filter((e) => !e.isRead && !e.isTrash).length,
+  starredCount: emails.filter((e) => e.isStarred && !e.isTrash).length,
+  highPriorityCount: emails.filter((e) => e.priority === 'HIGH' && !e.isTrash).length,
+  totalCount: emails.length,
+});
+
 export const useEmailStore = create((set, get) => ({
   emails: [],
   activeFolder: 'inbox',
@@ -61,21 +68,12 @@ export const useEmailStore = create((set, get) => ({
       });
 
       const messages = res.data.data.messages || [];
-      
-      // Compute counts
-      const unreadCount = messages.filter((e) => !e.isRead).length;
-      const starredCount = messages.filter((e) => e.isStarred).length;
-      const highPriorityCount = messages.filter((e) => e.priority === 'HIGH').length;
+      const stats = computeStats(messages);
 
       set({
         emails: messages,
         isLoading: false,
-        stats: {
-          unreadCount,
-          starredCount,
-          highPriorityCount,
-          totalCount: messages.length,
-        },
+        stats,
       });
 
       return messages;
@@ -91,14 +89,21 @@ export const useEmailStore = create((set, get) => ({
     try {
       const res = await api.get(`/emails/${id}`);
       const email = res.data.data;
-      set({ currentEmail: email, isDetailLoading: false });
 
-      // If unread, optimistically update in email list
-      if (!email.isRead) {
-        set((state) => ({
-          emails: state.emails.map((e) => (e.id === id ? { ...e, isRead: true } : e)),
-        }));
-      }
+      // Optimistically update read status and recompute remaining unread counts
+      set((state) => {
+        const wasUnread = !email.isRead || state.emails.some((e) => e.id === id && !e.isRead);
+        const updatedEmail = { ...email, isRead: true };
+        const updatedEmails = state.emails.map((e) =>
+          e.id === id ? { ...e, isRead: true } : e
+        );
+        return {
+          currentEmail: updatedEmail,
+          emails: updatedEmails,
+          isDetailLoading: false,
+          stats: wasUnread ? computeStats(updatedEmails) : state.stats,
+        };
+      });
 
       return email;
     } catch (err) {
@@ -122,10 +127,14 @@ export const useEmailStore = create((set, get) => ({
   markAsRead: async (id) => {
     try {
       await api.patch(`/emails/${id}/read`);
-      set((state) => ({
-        emails: state.emails.map((e) => (e.id === id ? { ...e, isRead: true } : e)),
-        currentEmail: state.currentEmail?.id === id ? { ...state.currentEmail, isRead: true } : state.currentEmail,
-      }));
+      set((state) => {
+        const updatedEmails = state.emails.map((e) => (e.id === id ? { ...e, isRead: true } : e));
+        return {
+          emails: updatedEmails,
+          currentEmail: state.currentEmail?.id === id ? { ...state.currentEmail, isRead: true } : state.currentEmail,
+          stats: computeStats(updatedEmails),
+        };
+      });
     } catch (err) {
       toast.error('Failed to mark email as read');
     }
@@ -134,10 +143,14 @@ export const useEmailStore = create((set, get) => ({
   markAsUnread: async (id) => {
     try {
       await api.patch(`/emails/${id}/unread`);
-      set((state) => ({
-        emails: state.emails.map((e) => (e.id === id ? { ...e, isRead: false } : e)),
-        currentEmail: state.currentEmail?.id === id ? { ...state.currentEmail, isRead: false } : state.currentEmail,
-      }));
+      set((state) => {
+        const updatedEmails = state.emails.map((e) => (e.id === id ? { ...e, isRead: false } : e));
+        return {
+          emails: updatedEmails,
+          currentEmail: state.currentEmail?.id === id ? { ...state.currentEmail, isRead: false } : state.currentEmail,
+          stats: computeStats(updatedEmails),
+        };
+      });
       toast.success('Marked as unread');
     } catch (err) {
       toast.error('Failed to mark email as unread');
@@ -147,10 +160,14 @@ export const useEmailStore = create((set, get) => ({
   starEmail: async (id) => {
     try {
       await api.patch(`/emails/${id}/star`);
-      set((state) => ({
-        emails: state.emails.map((e) => (e.id === id ? { ...e, isStarred: true } : e)),
-        currentEmail: state.currentEmail?.id === id ? { ...state.currentEmail, isStarred: true } : state.currentEmail,
-      }));
+      set((state) => {
+        const updatedEmails = state.emails.map((e) => (e.id === id ? { ...e, isStarred: true } : e));
+        return {
+          emails: updatedEmails,
+          currentEmail: state.currentEmail?.id === id ? { ...state.currentEmail, isStarred: true } : state.currentEmail,
+          stats: computeStats(updatedEmails),
+        };
+      });
     } catch (err) {
       toast.error('Failed to star email');
     }
@@ -159,10 +176,14 @@ export const useEmailStore = create((set, get) => ({
   unstarEmail: async (id) => {
     try {
       await api.patch(`/emails/${id}/unstar`);
-      set((state) => ({
-        emails: state.emails.map((e) => (e.id === id ? { ...e, isStarred: false } : e)),
-        currentEmail: state.currentEmail?.id === id ? { ...state.currentEmail, isStarred: false } : state.currentEmail,
-      }));
+      set((state) => {
+        const updatedEmails = state.emails.map((e) => (e.id === id ? { ...e, isStarred: false } : e));
+        return {
+          emails: updatedEmails,
+          currentEmail: state.currentEmail?.id === id ? { ...state.currentEmail, isStarred: false } : state.currentEmail,
+          stats: computeStats(updatedEmails),
+        };
+      });
     } catch (err) {
       toast.error('Failed to unstar email');
     }
@@ -171,10 +192,14 @@ export const useEmailStore = create((set, get) => ({
   archiveEmail: async (id) => {
     try {
       await api.patch(`/emails/${id}/archive`);
-      set((state) => ({
-        emails: state.emails.filter((e) => e.id !== id),
-        currentEmail: null,
-      }));
+      set((state) => {
+        const updatedEmails = state.emails.filter((e) => e.id !== id);
+        return {
+          emails: updatedEmails,
+          currentEmail: null,
+          stats: computeStats(updatedEmails),
+        };
+      });
       toast.success('Email archived');
     } catch (err) {
       toast.error('Failed to archive email');
@@ -184,11 +209,15 @@ export const useEmailStore = create((set, get) => ({
   deleteEmail: async (id, forcePermanent = false) => {
     const isTrash = get().activeFolder === 'trash' || forcePermanent;
     // Optimistic UI update
-    set((state) => ({
-      emails: state.emails.filter((e) => e.id !== id),
-      currentEmail: state.currentEmail?.id === id ? null : state.currentEmail,
-      selectedEmailIds: state.selectedEmailIds.filter((item) => item !== id),
-    }));
+    set((state) => {
+      const updatedEmails = state.emails.filter((e) => e.id !== id);
+      return {
+        emails: updatedEmails,
+        currentEmail: state.currentEmail?.id === id ? null : state.currentEmail,
+        selectedEmailIds: state.selectedEmailIds.filter((item) => item !== id),
+        stats: computeStats(updatedEmails),
+      };
+    });
 
     try {
       const res = await api.delete(`/emails/${id}${isTrash ? '?permanent=true' : ''}`);
@@ -203,11 +232,15 @@ export const useEmailStore = create((set, get) => ({
 
   restoreEmail: async (id) => {
     // Optimistic UI update
-    set((state) => ({
-      emails: state.emails.filter((e) => e.id !== id),
-      currentEmail: state.currentEmail?.id === id ? null : state.currentEmail,
-      selectedEmailIds: state.selectedEmailIds.filter((item) => item !== id),
-    }));
+    set((state) => {
+      const updatedEmails = state.emails.filter((e) => e.id !== id);
+      return {
+        emails: updatedEmails,
+        currentEmail: state.currentEmail?.id === id ? null : state.currentEmail,
+        selectedEmailIds: state.selectedEmailIds.filter((item) => item !== id),
+        stats: computeStats(updatedEmails),
+      };
+    });
 
     try {
       await api.patch(`/emails/${id}/restore`);
@@ -252,10 +285,14 @@ export const useEmailStore = create((set, get) => ({
     const ids = [...get().selectedEmailIds];
     if (ids.length === 0) return;
     await Promise.all(ids.map((id) => api.patch(`/emails/${id}/read`)));
-    set((state) => ({
-      emails: state.emails.map((e) => (ids.includes(e.id) ? { ...e, isRead: true } : e)),
-      selectedEmailIds: [],
-    }));
+    set((state) => {
+      const updatedEmails = state.emails.map((e) => (ids.includes(e.id) ? { ...e, isRead: true } : e));
+      return {
+        emails: updatedEmails,
+        selectedEmailIds: [],
+        stats: computeStats(updatedEmails),
+      };
+    });
     toast.success(`Marked ${ids.length} emails as read`);
   },
 
@@ -263,10 +300,14 @@ export const useEmailStore = create((set, get) => ({
     const ids = [...get().selectedEmailIds];
     if (ids.length === 0) return;
     await Promise.all(ids.map((id) => api.patch(`/emails/${id}/archive`)));
-    set((state) => ({
-      emails: state.emails.filter((e) => !ids.includes(e.id)),
-      selectedEmailIds: [],
-    }));
+    set((state) => {
+      const updatedEmails = state.emails.filter((e) => !ids.includes(e.id));
+      return {
+        emails: updatedEmails,
+        selectedEmailIds: [],
+        stats: computeStats(updatedEmails),
+      };
+    });
     toast.success(`Archived ${ids.length} emails`);
   },
 
@@ -275,10 +316,14 @@ export const useEmailStore = create((set, get) => ({
     if (ids.length === 0) return;
     const isTrash = get().activeFolder === 'trash' || forcePermanent;
     // Optimistic removal
-    set((state) => ({
-      emails: state.emails.filter((e) => !ids.includes(e.id)),
-      selectedEmailIds: [],
-    }));
+    set((state) => {
+      const updatedEmails = state.emails.filter((e) => !ids.includes(e.id));
+      return {
+        emails: updatedEmails,
+        selectedEmailIds: [],
+        stats: computeStats(updatedEmails),
+      };
+    });
     try {
       await Promise.all(ids.map((id) => api.delete(`/emails/${id}${isTrash ? '?permanent=true' : ''}`)));
       toast.success(isTrash ? `Permanently deleted ${ids.length} emails` : `Moved ${ids.length} emails to trash`);
@@ -293,10 +338,14 @@ export const useEmailStore = create((set, get) => ({
     const ids = [...get().selectedEmailIds];
     if (ids.length === 0) return;
     // Optimistic removal
-    set((state) => ({
-      emails: state.emails.filter((e) => !ids.includes(e.id)),
-      selectedEmailIds: [],
-    }));
+    set((state) => {
+      const updatedEmails = state.emails.filter((e) => !ids.includes(e.id));
+      return {
+        emails: updatedEmails,
+        selectedEmailIds: [],
+        stats: computeStats(updatedEmails),
+      };
+    });
     try {
       await Promise.all(ids.map((id) => api.patch(`/emails/${id}/restore`)));
       toast.success(`Restored ${ids.length} emails to inbox`);

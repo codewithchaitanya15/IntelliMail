@@ -16,7 +16,20 @@ export const EmailService = {
 
   async getEmail(userId, emailId) {
     const integration = await GmailService.getIntegrationForUser(userId);
-    const email = await integration.getEmail(emailId);
+    let email = await integration.getEmail(emailId);
+
+    // If currently unread, automatically mark as read when opened
+    if (email && !email.isRead) {
+      try {
+        await integration.markAsRead(emailId);
+        email.isRead = true;
+        if (email.labels) {
+          email.labels = email.labels.filter((l) => l !== 'UNREAD');
+        }
+      } catch (err) {
+        console.warn('[EmailService] Auto mark-as-read on open error:', err.message);
+      }
+    }
 
     // Retrieve any persisted AI summary or generated replies for this email
     const [summaryDoc, replies] = await Promise.all([
@@ -29,7 +42,7 @@ export const EmailService = {
       userId,
       emailId,
       action: 'EMAIL_OPENED',
-      metadata: { subject: email.subject, from: email.from },
+      metadata: { subject: email?.subject, from: email?.from },
     });
 
     return {
